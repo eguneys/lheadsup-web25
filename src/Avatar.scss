@@ -1,0 +1,349 @@
+@import '_variables';
+
+.logo {
+    span {
+        font-style: italic;
+        opacity: 0.9;
+        margin-right: 0.2em;
+    }
+}
+.chips {
+    color: $text;
+
+    &.raise {
+        color: gold;
+    }
+
+    span {
+        font-style: italic;
+        opacity: 0.9;
+    }
+}
+
+.card {
+    background-size: 350% !important;
+    pointer-events: none;
+    will-change: transform;
+    aspect-ratio: 5/7;
+}
+
+
+.poker2 {
+
+    user-select: none;
+    margin: auto;
+    background: #c0c0c0;
+    aspect-ratio: 16/9;
+
+    max-width: calc(100vh * 16 / 9);
+    min-width: 960px;
+
+    .table {
+        width: 100%;
+        height: 100%;
+        position: relative;
+
+        & > * {
+            position: absolute;
+            transform: translate(-50%, -50%);
+        }
+
+        .bg {
+            background: rgb(63, 109, 37);
+            width: 100%;
+            height: 100%;
+            transform: translate(0%, 0%);
+        }
+
+        .logo {
+            text-shadow: 1px 1px rgba(10, 10, 10, 0.8);
+            color: $text-dark;
+            opacity: 0.5;
+            font-size: 3em;
+            top: 50%;
+            left: 50%;
+        }
+
+        .circle {
+            background: rgba(173, 173, 173, 0.1);
+            box-shadow: 0px 0px 8px 2px rgba(200, 200, 200, 1);
+            border-radius: 120px;
+            width: 60%;
+            height: 40%;
+            top: 50%;
+            left: 50%;
+        }
+
+
+        .middle {
+            width: 40%;
+            display: flex;
+
+            .flop1,
+            .flop2,
+            .flop3,
+            .turn,
+            .river {
+                flex: 1;
+                border: 2.5px dashed white;
+                border-radius: 10px;
+                aspect-ratio: 5/7;
+                margin: 0.2em;
+            }
+
+            .flop3 {
+                margin-right: 0.5em;
+            }
+        }
+
+        .avatar {
+
+            width: 18%;
+            display: flex;
+            flex-flow: column-reverse;
+
+            & > .chips {
+                background: rgba(200, 200, 200, 0.2);
+                box-shadow: 0px 0px 5px rgba(200, 200, 200, 0.4);
+                border-radius: 50px;
+                backdrop-filter: blur(8px);
+
+                display: flex;
+                align-items: center;
+                justify-content: center;
+
+                font-size: 1.4em;
+                padding: 0.5em 0.1em;
+            }
+
+            .betdesc {
+                background: rgba(200, 200, 200, 0.2);
+                box-shadow: 0px 0px 5px rgba(200, 200, 200, 0.4);
+                border-radius: 10px;
+                backdrop-filter: blur(8px);
+
+                display: flex;
+                align-items: flex-end;
+                justify-content: center;
+                gap: 1em;
+
+                font-size: 1.2em;
+                padding: 0.8em 0.5em 0.2em 0.5em;
+                margin: -10px 20px 0px 20px;
+
+                text-transform: capitalize;
+            }
+
+
+            .turn-timer {
+                background: rgba(200, 200, 200, 0.2);
+
+                animation: glow 1s infinite;
+                border-radius: 2px;
+                backdrop-filter: blur(8px);
+
+
+                margin-top: 2px;
+                align-self: center;
+                width: 80%;
+                height: 20px;
+
+
+                .bar {
+                    background: rgba(237, 237, 237, 0.8);
+                    filter: blur(1px);
+                    height: 100%;
+
+                    &.danger {
+                      background: rgba(168, 37, 37, 0.8);
+                    }
+                }
+            }
+        }
+
+        .hand {
+            display: flex;
+            gap: 0.2em;
+            width: 66%;
+            align-self: center;
+            .card {
+                width: 50%;
+            }
+
+        }
+
+
+        .totalpot {
+            display: flex;
+            gap: 0.4em;
+        }
+
+
+        .bet-ui {
+
+            width: 24%;
+            display: flex;
+            flex-flow: column;
+
+            .action-ui {
+              display: flex;
+            }
+
+            .raise-ui {
+              position: relative;
+              display: flex;
+              flex-flow: column;
+
+              background:rgba(10, 10, 10, 0.6);
+              box-shadow: 0px 0px 5px 2px rgba(20, 20, 20, 0.4);
+              padding: 0.1em;
+              margin: 0.1em;
+
+              .slider-ui {
+                display: flex;
+                padding: 0.8em;
+                gap: 1em;
+
+                input {
+                    flex: 1;
+                }
+
+                span {
+                    min-width: 60px;
+                }
+              }
+
+
+              &::after {
+
+                content: '';
+                width: 80px;
+                height: 16px;
+                position: absolute;
+                bottom: -16px;
+                right: 8px;
+                background:rgba(10, 10, 10, 0.7);
+              }
+
+              .pre-raises {
+                display: grid;
+
+                grid-template-areas: 'one two three four';
+                grid-column: repeat(5, 1fr);
+
+                .one {
+                    grid-area: one;
+                }
+
+                .two {
+                    grid-area: two;
+                }
+
+                .three {
+                    grid-area: three;
+                }
+
+                .four {
+                    grid-area: four;
+                }
+
+                .raise {
+                  flex-grow: 0;
+                  flex-basis: 20%;
+                }
+              }
+            }
+
+            button {
+
+                cursor: pointer;
+                backdrop-filter: blur(8px);
+                background:rgba(10, 10, 10, 0.6);
+                box-shadow: 0px 0px 5px 2px rgba(20, 20, 20, 0.4);
+                border: none;
+
+
+                color: #c0c0c0;
+
+                display: flex;
+                flex-flow: column;
+                justify-content: center;
+                align-items: stretch;
+                flex: 1;
+                padding: 0.4em;
+                margin: 0.2em;
+                transition: all 0.2s;
+
+
+                & > span {
+                    display: block;
+                }
+
+
+                &:hover {
+                  box-shadow: 0px 0px 6px 4px rgba(20, 20, 20, 0.4);
+                  transform: scale(1.01);
+                }
+
+                &:active {
+                    transition: none;
+                    box-shadow: 0px 0px 3px 3px rgba(20, 20, 20, 0.4);
+                    transform: scale(1);
+                }
+            }
+        }
+    }
+
+}
+
+
+.poker2 {
+
+    .avatar,
+    .betprevious {
+        left: 56%;
+    }
+
+    .middle {
+        top: 50%;
+        left: 44%;
+    }
+
+    .avatar {
+            &.one {
+                top: calc(80%);
+            }
+
+            &.two {
+                top: calc(16%);
+            }
+    }
+
+    .betprevious {
+        &.one {
+            top: calc(80% - 20%);
+        }
+
+        &.two {
+            top: calc(16% + 20%);
+        }
+    }
+
+    .totalpot {
+
+        left: 70%;
+        top: 50%;
+    }
+
+
+    .bet-ui {
+        bottom: 2%;
+        right: 2%;
+        transform: translate(0%, 0%);
+    }
+}
+
+@keyframes glow {
+    0%, 100% { box-shadow: 0px 0px 15px 6px rgba(200, 200, 200, 0.4); }
+    50% { box-shadow: 0px 0px 15px 2px rgba(200, 200, 200, 0.4); }
+}
