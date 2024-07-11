@@ -134,7 +134,6 @@
                 text-transform: capitalize;
             }
 
-
             .turn-timer {
                 background: rgba(200, 200, 200, 0.2);
 
@@ -146,7 +145,7 @@
                 margin-top: 2px;
                 align-self: center;
                 width: 80%;
-                height: 20px;
+                height: 10px;
 
 
                 .bar {
@@ -321,11 +320,11 @@
 
     .betprevious {
         &.one {
-            top: calc(80% - 20%);
+            top: calc(80% - 17%);
         }
 
         &.two {
-            top: calc(16% + 20%);
+            top: calc(16% + 17%);
         }
     }
 

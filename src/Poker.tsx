@@ -1,14 +1,29 @@
 import { For } from 'solid-js/web'
 import './Avatar.scss'
-import { Bet, Card, Chips, Dests, Raise, ranks, RoundNPov, Stack, StackState, suits } from 'phevaluatorjs25'
-import { Accessor, createMemo, createSignal, mapArray, Show, Signal } from 'solid-js'
+import { Bet, Card, Chips, Dests, GameN, Headsup, make_deal, Raise, ranks, RoundNPov, Side, Stack, StackState, suits } from 'phevaluatorjs25'
+import { Accessor, createEffect, createMemo, createSignal, mapArray, Show, Signal } from 'solid-js'
 
 class RaiseUI {
 
+  get on_send_action() {
+    return 'raise ' + this.to_match + '-' + this.to_raise
+  }
+
+  get to_match () {
+    return this.raise.cant_match ?? this.raise.match
+  }
+
+  get to_raise() {
+    return this.current
+  }
+
   get threebet() {
+    if (this.raise.cant_minraise) {
+      return undefined
+    }
     let bet = this.raise.min_raise * 3
     if (this.raise.match === 0) {
-      if (bet <= this.stack) {
+      if (bet <= this.raw_raise_for_raise_to_allin) {
         return bet
       }
     }
@@ -16,51 +31,87 @@ class RaiseUI {
 
 
   get fivebet() {
+    if (this.raise.cant_minraise) {
+      return undefined
+    }
     let bet = this.raise.min_raise * 5
     if (this.raise.match === 0) {
-      if (bet <= this.stack) {
+      if (bet <= this.raw_raise_for_raise_to_allin) {
         return bet
       }
     }
   }
 
   get potraise() {
+    if (this.raise.cant_minraise) {
+      return undefined
+    }
     let bet = this.pot
-    if (bet <= this.stack) {
-      return bet
+    if (bet <= this.raw_raise_for_raise_to_allin) {
+      console.log(this.raise.min_raise, bet)
+      if (this.raise.min_raise >= bet) {
+        return bet
+      }
     }
   }
 
   get min_raise() {
+    if (this.raise.cant_minraise) {
+      return undefined
+    }
     let bet = this.raise.min_raise
+    if (bet === 0) {
+      return undefined
+    }
     if (this.raise.match !== 0) {
-      if (bet <= this.stack) {
-        return bet + this.raise.match
+      if (bet <= this.raw_raise_for_raise_to_allin) {
+        return bet
       }
     }
   }
 
   get third_raise() {
+    if (this.raise.cant_minraise) {
+      return undefined
+    }
     let bet = this.raise.min_raise * 3
+    if (bet === 0) {
+      return undefined
+    }
     if (this.raise.match !== 0) {
-      if (bet <= this.stack) {
-        return bet + this.raise.match
+
+      if (bet <= this.raw_raise_for_raise_to_allin) {
+        return bet
       }
     }
   }
 
 
   get five_raise() {
+    if (this.raise.cant_minraise) {
+      return undefined
+    }
     let bet = this.raise.min_raise * 5
+    if (bet === 0) {
+      return undefined
+    }
     if (this.raise.match !== 0) {
-      if (bet <= this.stack) {
-        return bet + this.raise.match
+      if (bet <= this.raw_raise_for_raise_to_allin) {
+        return bet
       }
     }
   }
 
+  get raise_to() {
+    return (this.stack.bet?.total ?? 0) + this.raise.match + this.current
+  }
+
+  get raw_raise_for_raise_to_allin() {
+    return this.stack.stack - this.raise.match
+  }
+
   get allin() {
-    return this.stack
+    return this.raise.cant_minraise ? this.raise.match : this.raw_raise_for_raise_to_allin
   }
 
   get current() {
@@ -81,8 +132,8 @@ class RaiseUI {
 
   _current: Signal<Chips>
 
-  constructor(readonly raise: Raise, readonly stack: Chips, readonly pot: Chips) {
-    this._current = createSignal(Math.min(stack, raise.min_raise))
+  constructor(readonly raise: Raise, readonly stack: Stack, readonly pot: Chips) {
+    this._current = createSignal(raise.min_raise === 0 ? raise.match : raise.min_raise)
   }
 
 
@@ -105,170 +156,334 @@ class StackMemo {
     state: Accessor<StackState>
     hand: Accessor<[Card, Card] | undefined>
 
-    constructor(stack: Stack) { 
-        this.stack = createMemo(() => stack.stack)
-        this.state = createMemo(() => stack.state)
-        this.bet = createMemo(() => stack.bet)
-        this.hand = createMemo(() => stack.hand)
+    constructor(readonly value: Stack) { 
+        this.stack = createMemo(() => value.stack)
+        this.state = createMemo(() => value.state)
+        this.bet = createMemo(() => value.bet)
+        this.hand = createMemo(() => value.hand)
     }
 
 }
 
-export const Poker2 = () => {
 
-    let dests_fen = 'call-170 raise-170-170 fold'
+class Player {
 
+  opponent_act(_npov: RoundNPov, _action: string) {
+  }
+  act(_npov: RoundNPov, _round_dests: Dests) {
+    return new Promise<string>(resolve => {
+      this.resolve = resolve
+    })
+  }
 
+  resolve?: (_: string) => void
 
-    let fen = `10-20 1 | f1840 3cQs fold-1160 / p960 raise-280-880-880 $!`
-    fen = `60-120 2 | @120 5d2h / i4800 raise-0-0-120 $ 960-12 !TdQcJc5sKs`
+  send_action(cmd: string) {
+    this.resolve?.(cmd)
+  }
 
+}
 
-    let dests = Dests.from_fen(dests_fen)
+class AIPlayer extends Player {
 
-    let npov = createMemo(() => RoundNPov.from_fen(fen))
-    let stacks = createMemo(mapArray(() => npov().stacks, _ => new StackMemo(_)))
-    let flop = createMemo(() => npov().flop)
-    let turn = createMemo(() => npov().turn)
-    let river = createMemo(() => npov().river)
-    let pot = createMemo(() => npov().pot)
+  async act(npov: RoundNPov, dests: Dests) {
+    if (dests.raise) {
+      let { match, min_raise, cant_match, cant_minraise } = dests.raise
 
-    let raise_ui = createMemo(() => {
-      let raise = dests.raise
-      if (raise) {
-        return new RaiseUI(raise, stacks()[0].stack(), pot()?.total_pot ?? 0)
+      if (cant_match !== undefined) {
+        return `raise ${cant_match}-0`
+      } else if (cant_minraise !== undefined) {
+        return `raise ${match}-${cant_minraise}`
+      } else {
+        return `raise ${match}-${min_raise}`
       }
+    }
+    if (dests.call) {
+      return `call ${dests.call.match}`
+    }
+
+    throw `Cant go "allin" ${dests.fen}`
+  }
+}
+
+class UIPlayer extends Player {
+
+}
+
+
+class PokerPlayDebug {
+
+  hh: Headsup
+
+  get watch_changes() {
+    return this.on_change[0]()
+  }
+
+  trigger_change() {
+    this.on_change[1](undefined)
+  }
+
+  on_change: Signal<undefined>
+
+  dests: Accessor<Dests | undefined>
+
+  constructor(_fen?: string) {
+
+    this.hh = Headsup.make()
+
+    this.on_change = createSignal(undefined, { equals: false })
+
+    this.dests = createMemo(() => {
+      this.watch_changes 
+      return this.hh.round_dests
     })
 
-    let klass = ['one', 'two']
+    this.phase_loop()
 
-    return (<>
+  }
 
-        <div class='poker2'>
-            <div class='table'>
-               <div class='bg'></div>
-               <div class='logo'><span>li</span>HeadsUp</div>
-               <div class='circle'></div>
-               <div class='middle'>
-                <Show fallback={
-                  <>
-                  <div class='flop1'></div>
-                  <div class='flop2'></div>
-                  <div class='flop3'></div>
-                  </>
-                  } when={flop()}>{flop => 
-                  <>
-                  <div class='flop1'><div class={card_klass(flop()[0])}></div></div>
-                  <div class='flop2'><div class={card_klass(flop()[1])}></div></div>
-                  <div class='flop3'><div class={card_klass(flop()[2])}></div></div>
-                  </>
-                }</Show>
-                <div class='turn'><Show when={turn()}>{turn => <div class={card_klass(turn())}></div>}</Show></div>
-                <div class='river'><Show when={river()}>{river => <div class={card_klass(river())}></div>}</Show></div>
-               </div>
-               <div class='totalpot'>
-                <Show when={pot()}>{pot => 
-                  <>
-                    <span>Total Pot:</span>
-                    <span class='chips'>{pot().total_pot}<span>li</span></span>
-                  </>
-                }</Show>
-               </div>
+  players: [Player, Player] = [new UIPlayer(), new AIPlayer()]
+  level = 1
+
+  async phase_loop() {
+    let h = this.hh
+    let players = this.players
+
+    const dealer_act_for_round = (act: string) => {
+      h.round_act(act)
+      this.trigger_change()
+    }
+
+    while (!h.winner) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      if (h.game_dests.deal) {
+        let { small_blind, button, seats } = h.game!
+        if (++this.level % 20 === 0) {
+
+          let new_blinds = small_blind + 20
+          h.game = new GameN(new_blinds, button, seats)
+        }
+
+        h.game_act('deal')
+        h.round_act(`deal ${make_deal(2)}`)
+        this.trigger_change()
+      }
+
+      const { round, round_dests } = h
+
+      if (round && round_dests) {
+        if (round_dests.phase) {
+          dealer_act_for_round('phase')
+        } else if (round_dests.win) {
+          dealer_act_for_round('win')
+        } else if (round_dests.share) {
+          dealer_act_for_round('share')
+        } else if (round_dests.showdown) {
+          dealer_act_for_round('showdown')
+        } else {
+
+          let { action_side } = round
+
+          let op_side = action_side === 1 ? 2 : 1 as Side
+
+          let action = await players[action_side - 1].act(round.pov(action_side), round_dests)
+
+          players[op_side - 1].opponent_act(round.pov(op_side), action)
+
+          h.round_act(action)
+          this.trigger_change()
+        }
+      }
+    }
+    console.log(h.winner)
+  }
 
 
-              <Show when={dests}>{ dests =>
-                <>
-                <div class='bet-ui'>
-                <Show when={raise_ui()}>{ raise_ui =>
-                  <div class='raise-ui'>
-                    <div class='slider-ui'>
-                      <input type='range' min={raise_ui().min_raise} max={raise_ui().allin} value={raise_ui().current} class='slider' onChange={(e) => raise_ui().current = parseInt(e.target.value) } onInput={(e) => raise_ui().current = parseInt(e.target.value) }></input>
-                      <span class='chips'>{raise_ui().current}<span>li</span></span>
-                    </div>
-                    <div class='pre-raises'>
-                      <Show when={raise_ui().threebet}>{ threebet => 
-                        <button onClick={() => raise_ui().on_current(threebet())} class='raise one'>3 Bet</button>
-                      }</Show>
-                      <Show when={raise_ui().fivebet}>{ fivebet => 
-                        <button onClick={() => raise_ui().on_current(fivebet())} class='raise two'>5 Bet</button>
-                      }</Show>
-                      <Show when={raise_ui().min_raise}>{ min_raise => 
-                        <button onClick={() => raise_ui().on_current(min_raise())} class='raise one'>Min Raise</button>
-                      }</Show>
-                      <Show when={raise_ui().third_raise }>{ third_raise => 
-                        <button onClick={() => raise_ui().on_current(third_raise())} class='raise two'>x3 Raise</button>
-                      }</Show>
-                      <Show when={raise_ui().potraise}>{ pot => 
-                        <button onClick={() => raise_ui().on_current(pot())} class='raise three'>Pot</button>
-                      }</Show>
-                      <Show when={raise_ui().allin}>{ allin => 
-                        <button onClick={() => raise_ui().on_current(allin())} class='raise four'>All-in</button>
-                      }</Show>
-                    </div>
-                  </div>
-                }</Show>
-                  <div class='action-ui'>
-                    <Show when={dests().fold}>
-                      <button class='fold'>Fold</button>
-                    </Show>
-                    <Show when={dests().call}>{call => 
-                      <button class='call'>Call <span class='chips'>{call().match} <span>li</span></span></button>
-                    }</Show>
-                    <Show when={raise_ui()}>{ raise_ui => 
-                      <button class='raise'>Raise to <span class='chips'>{raise_ui().current} <span>li</span></span></button>
-                    }</Show>
-                  </div>
+  get dests_fen() {
+    this.watch_changes
+    if (this.hh.round?.action_side === 1) {
+      return this.dests()?.fen
+    }
+  }
 
-                </div>
-                </>
-               }</Show>
-               <For each={stacks()}>{(stack, i) => 
-                 <>
-                 <div class={'avatar ' + klass[i()] + (stack.state() === '@' ? ' turn' : '')}>
-                    <Show when={stack.state() === '@'}>
-                      <div class='turn-timer'><div class='bar' style={`width: 50%`}></div></div>
-                    </Show>
-                    <Show when={stack.bet()}>{bet => 
-                    <>
-                      <div class={'betdesc ' + klass[i()]}>
-                       <Show fallback= {
-                         <span class={`desc ${bet().desc}`}>{bet().desc}</span>
-                       } when={bet().raise}>{ raise => 
-                         <>
-                         <span class={`desc ${bet().desc}`}>{bet().desc}</span>
-                         <span class='chips raise'>{raise()}<span>li</span></span>
-                         </>
-                       }</Show>
-                      </div>
-                   </>
-                   }</Show>
-                   <span class='chips'>{stack.stack()}<span>li</span></span>
-                   <Show fallback={
-                     <div class={'hand ' + klass[i()]}>
-                     <div class={'card back'}></div>
-                     <div class={'card back'}></div>
-                     </div>
-                    } when={stack.hand()}>{ hand => 
-                     <div class={'hand ' + klass[i()]}>
-                     <div class={card_klass(hand()[0])}></div>
-                     <div class={card_klass(hand()[1])}></div>
-                     </div>
-                   }</Show>
-                </div>
-                <Show when={stack.bet()}>{bet => 
-                <>
-                  <div class={'betprevious ' + klass[i()]}>
-                    <Show when={bet().previous + (bet().match?? 0) > 0}>
-                     <span class='chips previous'>{bet().previous + (bet().match?? 0) > 0}<span>li</span></span>
-                    </Show>
-                  </div>
-                </>
-                }</Show>
+  get fen() {
+    this.watch_changes
+    return this.hh.round?.pov(1).fen
+  }
+  
+}
 
-                 </>
-               }</For>
-            </div>
+export const Poker2 = () => {
+
+  let dd = new PokerPlayDebug()
+
+  let fen = createMemo(() => dd.fen)
+
+  createEffect(() => console.log(fen()))
+
+  let dests_fen = createMemo(() => dd.dests_fen)
+
+  let dests = createMemo(() => dests_fen() ? Dests.from_fen(dests_fen()!): undefined)
+
+
+  let npov = createMemo(() => { 
+    let f = fen()
+    if (!f) { return undefined } 
+    return RoundNPov.from_fen(f)
+  })
+  let stacks = createMemo(mapArray(() => npov()?.stacks, _ => new StackMemo(_)))
+  let flop = createMemo(() => npov()?.flop)
+  let turn = createMemo(() => npov()?.turn)
+  let river = createMemo(() => npov()?.river)
+  let pot = createMemo(() => npov()?.pot)
+
+  let raise_ui = createMemo(() => {
+    let d = dests()
+    if (!d) {
+      return undefined
+    }
+    let raise = d.raise
+    if (raise) {
+      return new RaiseUI(raise, stacks()[0].value, pot()?.total_pot ?? 0)
+    }
+  })
+
+  let klass = ['one', 'two']
+
+  const on_send_action = (cmd: string) => {
+    dd.players[0].send_action(cmd)
+  }
+
+  return (<>
+
+    <div class='poker2'>
+      <div class='table'>
+        <div class='bg'></div>
+        <div class='logo'><span>li</span>HeadsUp</div>
+        <div class='circle'></div>
+        <div class='middle'>
+          <Show fallback={
+            <>
+              <div class='flop1'></div>
+              <div class='flop2'></div>
+              <div class='flop3'></div>
+            </>
+          } when={flop()}>{flop =>
+            <>
+              <div class='flop1'><div class={card_klass(flop()[0])}></div></div>
+              <div class='flop2'><div class={card_klass(flop()[1])}></div></div>
+              <div class='flop3'><div class={card_klass(flop()[2])}></div></div>
+            </>
+            }</Show>
+          <div class='turn'><Show when={turn()}>{turn => <div class={card_klass(turn())}></div>}</Show></div>
+          <div class='river'><Show when={river()}>{river => <div class={card_klass(river())}></div>}</Show></div>
+        </div>
+        <div class='totalpot'>
+          <Show when={pot()}>{pot =>
+            <>
+              <span>Total Pot:</span>
+              <span class='chips'>{pot().total_pot}<span>li</span></span>
+            </>
+          }</Show>
         </div>
 
-    </>)
+
+        <Show when={dests()}>{dests =>
+          <>
+            <div class='bet-ui'>
+              <Show when={raise_ui()}>{raise_ui =>
+                <div class='raise-ui'>
+                  <div class='slider-ui'>
+                    <input type='range' min={raise_ui().raise.min_raise ?? raise_ui().allin} max={raise_ui().allin} value={raise_ui().current} class='slider' onChange={(e) => raise_ui().current = parseInt(e.target.value) } onInput={(e) => raise_ui().current = parseInt(e.target.value)}></input>
+                    <span class='chips'>{Math.ceil(raise_ui().current)}<span>li</span></span>
+                  </div>
+                  <div class='pre-raises'>
+                    <Show when={raise_ui().threebet}>{threebet =>
+                      <button onClick={() => raise_ui().on_current(threebet())} class='raise one'>3 Bet</button>
+                    }</Show>
+                    <Show when={raise_ui().fivebet}>{fivebet =>
+                      <button onClick={() => raise_ui().on_current(fivebet())} class='raise two'>5 Bet</button>
+                    }</Show>
+                    <Show when={raise_ui().min_raise}>{min_raise =>
+                      <button onClick={() => raise_ui().on_current(min_raise())} class='raise one'>Min Raise</button>
+                    }</Show>
+                    <Show when={raise_ui().third_raise}>{third_raise =>
+                      <button onClick={() => raise_ui().on_current(third_raise())} class='raise two'>x3 Raise</button>
+                    }</Show>
+                    <Show when={raise_ui().potraise}>{pot =>
+                      <button onClick={() => raise_ui().on_current(pot())} class='raise three'>Pot</button>
+                    }</Show>
+                    <Show when={raise_ui().allin}>{allin =>
+                      <button onClick={() => raise_ui().on_current(allin())} class='raise four'>All-in</button>
+                    }</Show>
+                  </div>
+                </div>
+              }</Show>
+              <div class='action-ui'>
+                <Show when={dests()?.fold}>
+                  <button onClick={() => on_send_action('fold')} class='fold'>Fold</button>
+                </Show>
+                <Show when={dests()?.check}>
+                  <button onClick={() => on_send_action('check')} class='check'>Check</button>
+                </Show>
+                <Show when={dests()?.call}>{call =>
+                  <button onClick={() => on_send_action('call ' + call().match)} class='call'>Call <span class='chips'>{call().match} <span>li</span></span></button>
+                }</Show>
+                <Show when={raise_ui()}>{raise_ui =>
+                  <button onClick={() => on_send_action(raise_ui().on_send_action)} class='raise'>Raise to <span class='chips'>{raise_ui().raise_to} <span>li</span></span></button>
+                }</Show>
+              </div>
+
+            </div>
+          </>
+        }</Show>
+        <For each={stacks()}>{(stack, i) =>
+          <>
+            <div class={'avatar ' + klass[i()] + (stack.state() === '@' ? ' turn' : '')}>
+              <Show when={stack.state() === '@'}>
+                <div class='turn-timer'><div class='bar' style={`width: 50%`}></div></div>
+              </Show>
+              <Show when={stack.bet()}>{bet =>
+                <>
+                  <div class={'betdesc ' + klass[i()]}>
+                    <Show fallback={
+                      <span class={`desc ${bet().desc}`}>{bet().desc}</span>
+                    } when={bet().raise}>{raise =>
+                      <>
+                        <span class={`desc ${bet().desc}`}>{bet().desc}</span>
+                        <span class='chips raise'>{raise()}<span>li</span></span>
+                      </>
+                      }</Show>
+                  </div>
+                </>
+              }</Show>
+              <span class='chips'>{stack.stack()}<span>li</span></span>
+              <Show fallback={
+                <div class={'hand ' + klass[i()]}>
+                  <div class={'card back'}></div>
+                  <div class={'card back'}></div>
+                </div>
+              } when={stack.hand()}>{hand =>
+                <div class={'hand ' + klass[i()]}>
+                  <div class={card_klass(hand()[0])}></div>
+                  <div class={card_klass(hand()[1])}></div>
+                </div>
+                }</Show>
+            </div>
+            <Show when={stack.bet()}>{bet =>
+              <>
+                <div class={'betprevious ' + klass[i()]}>
+                  <Show when={bet().total > 0}>
+                    <span class='chips previous'>{bet().total}<span>li</span></span>
+                  </Show>
+                </div>
+              </>
+            }</Show>
+
+          </>
+        }</For>
+      </div>
+    </div>
+
+  </>)
 }
