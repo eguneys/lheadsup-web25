@@ -14,6 +14,10 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - uses: actions/checkout@v4
+        with:
+          repository: 'eguneys/phevaluatorjs25'
+
       - name: Setup Node
         uses: actions/setup-node@v4
 
@@ -21,6 +25,14 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
             version: 8
+    
+      - name: Build dependencies
+        run: |
+           cd phevaluatorjs25
+           pnpm build
+           cd ../
+           pnpm link phevaluatorjs25/
+
 
       - name: Build project
         run: pnpm build
