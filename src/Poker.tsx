@@ -115,7 +115,7 @@ class RaiseUI {
   }
 
   get raise_to() {
-    return (this.stack.bet[0]()?.total ?? 0) + this.raise.match + this.current
+    return (this.stack.bet?.total ?? 0) + this.raise.match + this.current
   }
 
   get raw_raise_for_raise_to_allin() {
@@ -161,15 +161,103 @@ type KlassInfo = {
 
 
 class StackMemo {
+  init_hydrate(value: Stack): any {
 
-    init_hydrate(value: Stack): any {
-      this.bet[1](value.bet)
+      this.bet = value.bet
+
       this.stack[1](value.stack)
       this.state[1](value.state)
-      this.hand.map((h, i) => h.card = value.hand?.[i])
+      this.hand.map((h, i) => { 
+        h.card = value.hand?.[i] 
+        if (!value.hand) {
+          h._dealt_back[1](true)
+        } else {
+          h._dealt_back[1](false)
+        }
+      })
     }
 
-    bet: Signal<Bet | undefined> = createSignal<Bet | undefined>(undefined)
+  pot_add_bet() {
+    this._t_bet_pot_add[1](0)
+
+    clearInterval(this.clear_timer_pot_add)
+    this.clear_timer_pot_add = setInterval(() => {
+      let e = this._t_bet_pot_add[0]()!
+
+
+      if (e > 800) {
+        clearInterval(this.clear_timer_pot_add)
+        this.clear_timer_pot_add = undefined
+
+        this._t_bet_pot_add[1](undefined)
+        this._bet[1](undefined)
+
+      } else {
+        this._t_bet_pot_add[1](e + 60)
+      }
+    }, 60)
+  }
+
+  get bet_klass() {
+    let res = ''
+
+    if (this.bet) res += ' on'
+    if (this.bet_flash) res += ' flash'
+    return res
+  }
+
+  get bet_previous_klass() {
+    let res = ''
+    if (this.bet_add_pot) res += ' to-pot'
+    return res
+  }
+
+  get bet_add_pot() {
+    return this._t_bet_pot_add[0]() !== undefined
+  }
+
+    get bet_flash() {
+      return this._t_bet_flash[0]() < 600
+    }
+
+    _t_bet_pot_add = createSignal<number | undefined>(undefined)
+
+    clear_timer_pot_add?: number
+
+    _t_bet_flash = createSignal(0)
+    clear_timer?: number
+
+    get bet() {
+      return this._bet[0]()
+    }
+
+    set bet(value: Bet | undefined) {
+
+      if (!value) {
+        if (this._t_bet_pot_add[0]() !== undefined) {
+          return
+        }
+      }
+
+
+      this._bet[1](value)
+      this._t_bet_flash[1](0)
+
+      clearInterval(this.clear_timer)
+      this.clear_timer = setInterval(() => {
+        let e = this._t_bet_flash[0]()
+
+
+        if (e > 600) {
+          clearInterval(this.clear_timer)
+          this.clear_timer = undefined
+        } else {
+          this._t_bet_flash[1](e + 60)
+        }
+      }, 60)
+    }
+
+    _bet: Signal<Bet | undefined> = createSignal<Bet | undefined>(undefined)
     stack: Signal<number> = createSignal(0)
     state: Signal<StackState> = createSignal('')
     hand: [CardRevealMemo, CardRevealMemo] = [new CardRevealMemo(), new CardRevealMemo()]
@@ -244,6 +332,9 @@ class CardRevealMemo {
   get klass() {
 
     if (!this.card) {
+      if (this._dealt_back[0]()) {
+        return 'card back'
+      }
       return undefined
     }
 
@@ -258,6 +349,8 @@ class CardRevealMemo {
     }
     return kk
   }
+
+  _dealt_back: Signal<boolean> = createSignal(false)
 
   get card() {
     return this._card[0]()
@@ -370,7 +463,7 @@ class RoundNPovMemo {
       }
 
       if (ev instanceof ActionBetEvent) {
-        this.stacks[ev.side - 1].bet[1](ev.bet)
+        this.stacks[ev.side - 1].bet = ev.bet
       }
 
       if (ev instanceof FlopEvent) {
@@ -433,6 +526,7 @@ class RoundNPovMemo {
 
       if (ev instanceof PotAddBet) {
         this.pot.total_pot += ev.chips
+        this.stacks[ev.side - 1].pot_add_bet()
       }
 
     })
@@ -760,10 +854,12 @@ class HeadsupReplay {
     if (this.i !== -1) {
 
       if (this.i < this.events.length - 1) {
+        this.playing = true
+
         this.i++
 
-        this.playing = true
         await this.hm.resolve_animation_end
+        await new Promise(resolve => setTimeout(resolve, 1000))
 
         if (!this.playing) {
           return
@@ -783,7 +879,8 @@ class HeadsupReplay {
         return
       }
       console.log(events.round_pov?.fen)
-      if (pre !== undefined && i === pre + 1) {
+      //if (pre !== undefined && i === pre + 1) {
+      if (this.playing) {
         // patch events
         if (events.round_events) {
           this.hm.round_patch(events.round_events)
@@ -884,6 +981,7 @@ class PokerPlayDebug {
     while (!h.winner) {
 
       await (players[0] as UIPlayer).hm.resolve_animation_end
+      await new Promise(resolve => setTimeout(resolve, 1000))
 
       if (h.game_dests.deal) {
         let { small_blind, button, seats } = h.game!
@@ -1130,8 +1228,8 @@ export const Poker2 = () => {
         each={stacks()}>{(stack, i) =>
           <>
             <div class={'avatar ' + klass[i] + (stack().state[0]() === '@' ? ' turn' : '')}>
-              <div class={'betdesc ' + klass[i] + (stack().bet[0]() ? ' on' : '')}>
-              <Show when={stack().bet[0]()}>{bet =>
+              <div class={'betdesc ' + klass[i] + stack().bet_klass}>
+              <Show when={stack().bet}>{bet =>
                 <>
                     <Show fallback={
                       <span class={`desc ${bet().desc}`}>{bet().desc}</span>
@@ -1164,9 +1262,9 @@ export const Poker2 = () => {
                 </div>
                 }</Show>
             </div>
-            <Show when={stack().bet[0]()}>{bet =>
+            <Show when={stack().bet}>{bet =>
               <>
-                <div class={'betprevious ' + klass[i]}>
+                <div class={'betprevious ' + klass[i] + stack().bet_previous_klass}>
                   <Show when={bet().total > 0}>
                     <span class='chips previous'>{bet().total}<span>li</span></span>
                   </Show>

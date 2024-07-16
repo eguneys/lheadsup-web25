@@ -180,6 +180,7 @@
                 border-radius: 10px;
                 backdrop-filter: blur(8px);
 
+
                 display: flex;
                 align-items: flex-end;
                 justify-content: center;
@@ -195,10 +196,13 @@
                 transition: transform 1s;
                 transform: translate(0%, -100%);
                 
-            }
+                &.on {
+                  transform: translate(0%, 0%);
+                }
 
-            .betdesc.on {
-                transform: translate(0%, 0%);
+                &.flash {
+                    animation: flash .6s;
+                }
             }
 
             .turn-timer {
@@ -414,6 +418,11 @@
         &.two {
             top: calc(16% + 17%);
         }
+
+
+        &.to-pot {
+            animation: to-pot .8s forwards;
+        }
     }
 
     .totalpot {
@@ -428,6 +437,11 @@
         right: 2%;
         transform: translate(0%, 0%);
     }
+}
+
+@keyframes flash {
+    0% { background: white }
+    20% { background: white }
 }
 
 @keyframes glow {
@@ -446,6 +460,9 @@
 }
 
 
+@keyframes to-pot {
+    100% { top: 50%; left: 64%; opacity: 0.2; }
+}
 
 
 
