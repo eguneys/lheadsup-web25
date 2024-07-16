@@ -13,7 +13,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-        path: web
+        with:
+           path: web
 
       - uses: actions/checkout@v4
         with:
