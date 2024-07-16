@@ -873,7 +873,7 @@ class HeadsupReplay {
 
   constructor() {
 
-    createEffect(on(this._i[0], (i, pre) => {
+    createEffect(on(this._i[0], (i, _pre) => {
       const events = this.events[i === -1 ? this.events.length -1 : i]
       if (!events) {
         return
@@ -1130,7 +1130,7 @@ export const Poker2 = () => {
 
 
         <div class='showdown-win'>
-          <Show when={pot_shares()}>{ info => 
+          <Show when={pot_shares()}>{ _info => 
             <> <span></span> </>
           }</Show>
         </div>
