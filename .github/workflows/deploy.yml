@@ -32,8 +32,9 @@ jobs:
            cd phevaluatorjs25
            pnpm install
            pnpm build
-           cd ../
-           pnpm link phevaluatorjs25/
+
+      - name: Link dependencies
+        run: pnpm link phevaluatorjs25/
 
 
       - name: Build project
