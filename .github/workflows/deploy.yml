@@ -35,15 +35,10 @@ jobs:
            pnpm install
            pnpm build
 
-      - name: Link dependencies
-        run: |
-           cd web
-           pnpm link phevaluatorjs25
-
-
       - name: Build project
         run: |
            cd web
+           pnpm install
            pnpm build
 
       - name: Upload production-ready build files
