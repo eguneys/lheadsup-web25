@@ -1,5 +1,5 @@
 import './Avatar.scss'
-import { ActionBetEvent, Bet, ButtonEvent, Card, ChangeState, Chips, CollectHand, CollectPot, Dests, Event, Events, FlopEvent, GameN, get_klass_info, HandEvent, Headsup, make_deal, PotAddBet, PotShare, PotShareEvent, Raise, ranks, RiverEvent, RoundN, RoundNPov, Seat, Side, Stack, StackAddEvent, StackEvent, StackState, suits, TurnEvent } from 'phevaluatorjs25'
+import { ActionBetEvent, Bet, ButtonEvent, Card, ChangeState, Chips, CollectHand, CollectPot, Dests, Event, Events, FlopEvent, GameN, get_klass_info, HandEvent, Headsup, make_deal, PotAddBet, PotShare, PotShareEvent, Raise, ranks, RiverEvent, RoundNExtra, RoundNPov, Seat, Side, Stack, StackAddEvent, StackEvent, StackState, suits, TurnEvent } from 'phevaluatorjs25'
 import { Accessor, createEffect, createMemo, createResource, createSignal, For, Index, on, ResourceReturn, Show, Signal } from 'solid-js'
 
 
@@ -241,8 +241,12 @@ class StackMemo {
 
 
       this._bet[1](value)
-      this._t_bet_flash[1](0)
 
+      if (!value) {
+        return
+      }
+
+      this._t_bet_flash[1](0)
       clearInterval(this.clear_timer)
       this.clear_timer = setInterval(() => {
         let e = this._t_bet_flash[0]()
@@ -561,6 +565,25 @@ class RoundNPovMemo {
 
   no_delay: boolean = false
 
+
+  _turn_timer_left = createSignal<number | undefined>(undefined, { equals: false })
+  _t_turn_timer_left = createSignal<number | undefined>(undefined)
+  clear_timer?: number
+
+
+  get turn_timer_left() {
+    let e = this._t_turn_timer_left[0]()
+    if (e === undefined) {
+      return undefined
+    }
+    return e / 13000
+  }
+
+  init_extra(extra: RoundNExtra) {
+    this._turn_timer_left[1](extra.time_left)
+  }
+
+
   init_hydrate(round_pov: RoundNPov | undefined) {
     if (!round_pov) {
 
@@ -588,6 +611,33 @@ class RoundNPovMemo {
 
   constructor(readonly nb: number) {
     this.stacks = [...Array(nb).keys()].map(_ => new StackMemo())
+
+
+    createEffect(on(this._turn_timer_left[0], (left) => {
+      if (left === undefined) {
+        this._t_turn_timer_left[1](undefined)
+        return
+      }
+
+      this._t_turn_timer_left[1](13000 - left)
+
+      clearInterval(this.clear_timer)
+      this.clear_timer = setInterval(() => {
+        let e = this._t_turn_timer_left[0]()!
+
+
+        if (e >= 13000) {
+          clearInterval(this.clear_timer)
+          this.clear_timer = undefined
+
+          this._t_turn_timer_left[1](undefined)
+        } else {
+          this._t_turn_timer_left[1](e += 10)
+        }
+      }, 10)
+    }))
+
+
   }
 }
 
@@ -650,8 +700,16 @@ class HeadsupMemo {
   game_init(game_pov?: GameN) {
     this.gamen.init_hydrate(game_pov)
   }
-  round_init(round_pov?: RoundNPov) {
+  round_init(round_pov: RoundNPov | undefined) {
     this.roundn.init_hydrate(round_pov)
+  }
+
+  dests_init(dests?: Dests) {
+    this._dests[1](dests === undefined ? true : dests)
+  }
+
+  extra_init(extra: RoundNExtra) {
+    this.roundn.init_extra(extra)
   }
 
   get is_round_initialized() {
@@ -662,7 +720,7 @@ class HeadsupMemo {
 
   gamen: GameNMemo
   roundn: RoundNPovMemo
-  _dests: Signal<Dests | undefined> = createSignal<Dests | undefined>(undefined)
+  _dests: Signal<Dests | true> = createSignal<Dests | true>(true)
 
   dests_resource: ResourceReturn<Dests | undefined>
 
@@ -676,6 +734,7 @@ class HeadsupMemo {
   seats: Accessor<SeatMemo[] | undefined>
   pot: Accessor<PotMemo | undefined>
   pot_shares: Accessor<PotShareInfo[] | undefined>
+  turn_timer_left: Accessor<number | undefined>
 
   get resolve_animation_end() {
     return Promise.all([
@@ -689,6 +748,9 @@ class HeadsupMemo {
     this.gamen = new GameNMemo(2)
     this.roundn = new RoundNPovMemo(2)
     this.dests_resource = createResource(this._dests[0], async dests => {
+      if (dests === true) {
+        return undefined
+      }
       await this.resolve_animation_end
       return dests
     })
@@ -697,7 +759,11 @@ class HeadsupMemo {
       if (this.dests_resource[0].loading) {
         return undefined
       }
-      return this.dests_resource[0]()
+      let res = this.dests_resource[0]()
+      if (res === null) {
+        return undefined
+      }
+      return res
     })
 
     this.flop = createMemo(() => this.roundn.is_initialized ? this.roundn.flop : undefined)
@@ -709,99 +775,28 @@ class HeadsupMemo {
 
     this.stacks = createMemo(() => this.roundn.is_initialized ? this.roundn.stacks : undefined)
     this.seats = createMemo(() => this.gamen.is_initialized ? this.gamen.seats : undefined)
+
+    this.turn_timer_left = createMemo(() => this.roundn.is_initialized ? this.roundn.turn_timer_left : undefined)
   }
 
   round_patch(events: Event[]) {
     this.roundn.patch(events)
   }
 }
-
-
-class Player {
-
-  opponent_act(_npov: RoundNPov, _action: string) {
-  }
-  act(_npov: RoundNPov, _round_dests: Dests) {
-    return new Promise<string>(resolve => {
-      this.resolve = resolve
-    })
-  }
-
-  resolve?: (_: string) => void
-
-  send_action(cmd: string) {
-    this.resolve?.(cmd)
-  }
-
-  round_events(events: Event[]) {
-    this._round_events(events)
-  }
-
-  game_events(events: Event[]) {
-    this._game_events(events)
-  }
-
-
-
-  _round_events(_events: Event[]) {}
-  _game_events(_events: Event[]) {}
+type RecordEvent = {
+  round_dests?: Dests, game_events?: Event[], round_events?: Event[], round_extra?: RoundNExtra, round_pov?: RoundNPov, game_pov?: GameN 
 }
-
-class AIPlayer extends Player {
-
-  async act(_npov: RoundNPov, dests: Dests) {
-    if (dests.raise) {
-      let { match, min_raise, cant_match, cant_minraise } = dests.raise
-
-      if (cant_match !== undefined) {
-        return `raise ${cant_match}-0`
-      } else if (cant_minraise !== undefined) {
-        return `raise ${match}-${cant_minraise}`
-      } else {
-        return `raise ${match}-${min_raise}`
-      }
-    }
-    if (dests.call) {
-      return `call ${dests.call.match}`
-    }
-
-    throw `Cant go "allin" ${dests.fen}`
-  }
-}
-
-class UIPlayer extends Player {
-
-  hm: HeadsupMemo
-
-  constructor() {
-    super()
-    this.hm = new HeadsupMemo()
-  }
-
-  _round_events(events: Event[]): void {
-    this.hm.round_patch(events)
-  }
-}
-
-type RecordEvent = { game_events?: Event[], round_events?: Event[], round_pov?: RoundNPov, game_pov?: GameN }
-
-
 
 class HeadsupReplay {
 
-  round_events(round_events: Events, round: RoundN | undefined, game: GameN | undefined) {
-    this.events.push({ round_events: round_events.pov(1), round_pov: round?.pov(1), game_pov: game?.pov(1) })
+  push_events(event: RecordEvent) {
+    this.events.push(event)
     this._events[1](this.events)
+    this._i[1](-1)
   }
-
-  game_events(game_events: Events, round: RoundN | undefined, game: GameN | undefined) {
-    this.events.push({ game_events: game_events.pov(1), round_pov: round?.pov(1), game_pov: game?.pov(1) })
-    this._events[1](this.events)
-  }
-
 
   _events: Signal<RecordEvent[]> = createSignal<RecordEvent[]>([], { equals: false })
-  _i: Signal<number> = createSignal(-1)
+  _i: Signal<number> = createSignal(-1, { equals: false })
 
   get events() {
     return this._events[0]()
@@ -879,10 +874,10 @@ class HeadsupReplay {
         return
       }
       console.log(events.round_pov?.fen)
-      //if (pre !== undefined && i === pre + 1) {
-      if (this.playing) {
+      if (this.playing || i === -1) {
         // patch events
         if (events.round_events) {
+          console.log(events.round_events)
           this.hm.round_patch(events.round_events)
         }
 
@@ -894,6 +889,8 @@ class HeadsupReplay {
           }
         }
 
+        this.hm.dests_init(events.round_dests)
+
       } else {
         if (events.round_pov) {
           this.hm.round_init(events.round_pov)
@@ -901,86 +898,140 @@ class HeadsupReplay {
         if (events.game_pov) {
           this.hm.game_init(events.game_pov)
         }
+
+        this.hm.dests_init(events.round_dests)
       }
     }))
   }
 
 }
 
+abstract class Player {
+  
 
-class PokerPlayDebug {
-
-  replay: HeadsupReplay = new HeadsupReplay()
-  hh: Headsup
-
-  headsup_change: Signal<undefined> = createSignal(undefined, { equals: false })
-
-  constructor(_fen?: string) {
-    this.hh = Headsup.make()
-
-    let hh_round_dests = createMemo(() => {
-      this.headsup_change[0]()
-      return this.hh.round_dests
+  act(_npov: RoundNPov, _round_dests: Dests) {
+    return new Promise<string>(resolve => {
+      this.resolve = resolve
     })
+  }
 
-    let hh_round = createMemo(() => {
-      this.headsup_change[0]() 
-      return this.hh.round
-    })
+  resolve?: (_: string) => void
 
-    let hh_game = createMemo(() => {
-      this.headsup_change[0]() 
-      return this.hh.game
-    })
+  send_action(cmd: string) {
+    this.resolve?.(cmd)
+    this._on_send_action()
+  }
 
-    createEffect(on(hh_round, (round, pre) => { 
-      if (!pre && round) {
-        this.ui.hm.round_init(round.pov(1))
-      } else if (pre && !round) {
-        this.ui.hm.round_init(undefined)
+  push_data(res: PokerPlaySocketsData) {
+    this._push_data(res)
+  }
+
+  _on_send_action() {}
+  _push_data(_: PokerPlaySocketsData) {}
+
+
+  _wait_ready = new Promise<void>(resolve => {
+    this._wait_ready_resolve = resolve
+  })
+
+  _wait_ready_resolve!: () => void
+
+}
+
+
+class AIPlayer extends Player {
+
+  constructor() {
+    super()
+    this._wait_ready_resolve()
+  }
+
+  async act(_npov: RoundNPov, dests: Dests) {
+    if (dests.raise) {
+      let { match, min_raise, cant_match, cant_minraise } = dests.raise
+
+      if (cant_match !== undefined) {
+        return `raise ${cant_match}-0`
+      } else if (cant_minraise !== undefined) {
+        return `raise ${match}-${cant_minraise}`
+      } else {
+        return `raise ${match}-${min_raise}`
       }
-     }))
+    }
+    if (dests.call) {
+      return `call ${dests.call.match}`
+    }
 
-    createEffect(on(hh_game, (game, pre) => { 
-      if (!pre && game) {
-        this.ui.hm.game_init(game)
-      } else if (pre && !game) {
-        this.ui.hm.game_init(undefined)
-      }
-     }))
+    throw `Cant go "allin" ${dests.fen}`
+  }
+}
 
-     createEffect(on(hh_round_dests, dests => {
-        if (this.hh.round?.action_side === 1) {
-         this.ui.hm._dests[1](dests)
-        } else {
-          this.ui.hm._dests[1](undefined)
-        }
-     }))
+
+class UIPlayer extends Player {
+
+  sockets: PokerPlaySockets = new PokerPlaySockets()
+
+  _push_data(_: PokerPlaySocketsData): void {
+    this.sockets.data = _
   }
 
 
+  send_action(cmd: string) {
+    this.resolve?.(cmd)
+  }
 
+}
+
+
+
+export class HeadsupLocalPlay {
+
+  players: [Player, Player] = [new UIPlayer(), new AIPlayer()]
+  hh: Headsup = Headsup.make()
+
+  level = 1
+ 
   get ui() {
     return this.players[0] as UIPlayer
   }
 
-  players: [Player, Player] = [new UIPlayer(), new AIPlayer()]
-  level = 1
+  async begin_phase_loop_when_ready() {
+    await Promise.all(this.players.map(_ => _._wait_ready))
+
+    console.log('begin')
+    let winner = await this.phase_loop()
+    console.log('over ', winner)
+  }
 
   async phase_loop() {
     let h = this.hh
     let players = this.players
 
+    const headsup_change = (game_events?: Events, round_events?: Events) => {
+
+        for (let i = 0; i < players.length; i++) {
+          let res: PokerPlaySocketsData = {}
+          res.round_extra = round_events?.extra
+          res.game_pov = h.game?.pov(i + 1 as Side).fen
+          res.round_pov = h.round?.pov(i + 1 as Side).fen
+          res.game_events = game_events?.pov(i + 1 as Side)?.map(_ => _.fen).join(',')
+          res.round_events = round_events?.pov(i + 1 as Side)?.map(_ => _.fen).join(',')
+
+          if (h.round && h.round.action_side === i + 1) {
+            res.round_dests = h.round_dests?.fen
+          }
+          players[i].push_data(res)
+        }
+    }
+
     const dealer_act_for_round = (act: string) => {
       let events = h.round_act(act)
-      players[0].round_events(events.pov(1) ?? [])
-      this.replay.round_events(events, h.round, h.game)
-      this.headsup_change[1]()
+      headsup_change(undefined, events)
     }
 
     while (!h.winner) {
 
-      await (players[0] as UIPlayer).hm.resolve_animation_end
+      await this.ui.sockets.replay.hm.resolve_animation_end
       await new Promise(resolve => setTimeout(resolve, 1000))
 
       if (h.game_dests.deal) {
@@ -991,18 +1042,10 @@ class PokerPlayDebug {
         }
 
         let game_events = h.game_act('deal')
+        headsup_change(game_events)
 
-        this.headsup_change[1]()
-        players[0].game_events(game_events?.pov(1) ?? [])
-        if (game_events) {
-          this.replay.game_events(game_events, h.round, h.game)
-        }
-
-        let events = h.round_act(`deal ${make_deal(2)}`)
-
-        players[0].round_events(events.pov(1) ?? [])
-        this.replay.round_events(events, h.round, h.game)
-        this.headsup_change[1]()
+        let round_events = h.round_act(`deal ${make_deal(2)}`)
+        headsup_change(undefined, round_events)
       }
 
       const { round, round_dests } = h
@@ -1020,42 +1063,83 @@ class PokerPlayDebug {
 
           let { action_side } = round
 
-          let op_side = action_side === 1 ? 2 : 1 as Side
-
           let action = await players[action_side - 1].act(round.pov(action_side), round_dests)
 
-          players[op_side - 1].opponent_act(round.pov(op_side), action)
-
           let events = h.round_act(action)
-          players[0].round_events(events.pov(1) ?? [])
-          this.replay.round_events(events, h.round, h.game)
-          this.headsup_change[1]()
+          headsup_change(undefined, events)
         }
       }
     }
-    console.log(h.winner)
+    return h.winner
   }
+
 }
+
+
+type PokerPlaySocketsData = {
+  round_dests?: string,
+  game_events?: string,
+  round_events?: string,
+  round_extra?: RoundNExtra,
+  round_pov?: string,
+  game_pov?: string
+}
+
+class PokerPlaySockets {
+
+  replay: HeadsupReplay = new HeadsupReplay()
+
+  _data: Signal<PokerPlaySocketsData | undefined> = createSignal<PokerPlaySocketsData | undefined>(undefined)
+
+  set data(_: PokerPlaySocketsData) {
+    this._data[1](_)
+  }
+
+  constructor() {
+
+    createEffect(on(this._data[0], data => {
+      if (!data) {
+        return
+      }
+
+      let { game_events, round_events, round_extra, round_pov, game_pov, round_dests } = data
+
+      let res: RecordEvent = {}
+
+      res.game_events = game_events?.split(',').map((_: string) => Event.from_fen(_)!)
+      res.round_events = round_events?.split(',').map((_: string) => Event.from_fen(_)!)
+      res.game_pov = game_pov ? GameN.from_fen(game_pov) : undefined
+      res.round_pov = round_pov ? RoundNPov.from_fen(round_pov) : undefined
+      res.round_extra = round_extra
+      res.round_dests = round_dests ? Dests.from_fen(round_dests) : undefined
+
+      this.replay.push_events(res)
+    }))
+  }
+
+}
+
 
 export const Poker2 = () => {
 
-  let dd = new PokerPlayDebug()
-  const hm = createMemo(on(() => dd.replay.i, i => {
-    if (i === -1) {
-      return (dd.players[0] as UIPlayer).hm
-    } else {
-      return dd.replay.hm
-    }
-  }))
+  let local = new HeadsupLocalPlay()
 
-  const dests = createMemo(() => hm().dests())
-  const flop = createMemo(() => hm().flop())
-  const turn = createMemo(() => hm().turn())
-  const river = createMemo(() => hm().river())
-  const pot = createMemo(() => hm().pot())
-  const stacks = createMemo(() => hm().stacks())
-  const seats = createMemo(() => hm().seats())
-  const pot_shares = createMemo(() => hm().pot_shares())
+  local.begin_phase_loop_when_ready()
+  local.ui._wait_ready_resolve()
+  let dd = local.ui.sockets
+  const replay = dd.replay
+
+  const hm = replay.hm
+
+  const dests = createMemo(() => hm.dests())
+  const flop = createMemo(() => hm.flop())
+  const turn = createMemo(() => hm.turn())
+  const river = createMemo(() => hm.river())
+  const pot = createMemo(() => hm.pot())
+  const stacks = createMemo(() => hm.stacks())
+  const seats = createMemo(() => hm.seats())
+  const pot_shares = createMemo(() => hm.pot_shares())
+  const turn_timer_left = createMemo(() => hm.turn_timer_left())
 
   let raise_ui = createMemo(() => {
     let d = dests()
@@ -1072,12 +1156,10 @@ export const Poker2 = () => {
     }
   })
 
-  dd.phase_loop()
-
   let klass = ['one', 'two']
 
   const on_send_action = (cmd: string) => {
-    dd.players[0].send_action(cmd)
+    local.ui.send_action(cmd)
   }
 
   let replay_list_ref: HTMLUListElement
@@ -1114,8 +1196,8 @@ export const Poker2 = () => {
         <div class='replay'>
           <div class='list'>
           <ul ref={_ => replay_list_ref = _}>
-            <For each={dd.replay.events}>{(event, i) => 
-               <li onClick={() => dd.replay.go_to_i(i())} class={dd.replay.i === -1 ? (i() === dd.replay.events.length - 1 ? 'active' : '') : (i() === dd.replay.i ? 'active': '')}>
+            <For each={replay.events}>{(event, i) => 
+               <li onClick={() => replay.go_to_i(i())} class={replay.i === -1 ? (i() === replay.events.length - 1 ? 'active' : '') : (i() === dd.replay.i ? 'active': '')}>
                   {(event.round_events??event.game_events)?.map(_ => _.fen)}
                </li>
             }</For>
@@ -1244,9 +1326,9 @@ export const Poker2 = () => {
               </div>
               <Show fallback={
                 <div class='turn-timer off'></div>
-              } when={stack().state[0]() === '@'}>
-                <div class='turn-timer'><div class='bar' style={`width: 50%`}></div></div>
-              </Show>
+              } when={stack().state[0]() === '@' && turn_timer_left()}>{ timer_left => 
+                <div class='turn-timer'><div class='bar' style={`width: ${Math.min(1, 1 - timer_left()) * 100}%`}></div></div>
+              }</Show>
 
 
               <span class='chips'>{stack().stack[0]()}<span>li</span></span>
