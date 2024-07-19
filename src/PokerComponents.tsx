@@ -96,8 +96,10 @@ export const Hand = (props: HandCards) => {
     </>)
 }
 
+type Uk<T> = { klass: string, value: T | undefined }
+
 type HandCards = { hand?: [Card, Card] }
-type MiddleCards = { flop?: [Card, Card, Card], turn?: Card, river?: Card }
+type MiddleCards = { flop: Uk<[Card, Card, Card]>, turn: Uk<Card>, river: Uk<Card> }
 
 export const Middle = (props: MiddleCards) => {
     return (<>
@@ -107,13 +109,13 @@ export const Middle = (props: MiddleCards) => {
             <span>Ace High, 3 5</span>
         </div>
         <div class='ftr'>
-            <div class='flop updatable updated'>
-              <CardHolder class='flop-0' card={props.flop?.[0]}/>
-              <CardHolder class='flop-1' card={props.flop?.[1]}/>
-              <CardHolder class='flop-2' card={props.flop?.[2]}/>
+            <div class={'flop ' + props.flop.klass}>
+              <CardHolder class='flop-0' card={props.flop.value?.[0]}/>
+              <CardHolder class='flop-1' card={props.flop.value?.[1]}/>
+              <CardHolder class='flop-2' card={props.flop.value?.[2]}/>
             </div>
-            <CardHolder class='turn updatable updated' card={props.turn} />
-            <CardHolder class='river updatable updated' card={props.river} />
+            <CardHolder class={'turn' + props.turn.klass} card={props.turn.value} />
+            <CardHolder class={'river' + props.river.klass} card={props.river.value} />
         </div>
     </div>
     </>)
@@ -195,27 +197,28 @@ export const Person = (props: PersonProps) => {
 export const EventInfo = () => {
     return (<>
     <div class='event'>
-        <span class='name'>Headsup Tournament</span>
-        <span class='desc'>A Headsup Tournament organized by website</span>
-        <span class='players'>Players Left: <span>3</span></span>
-        <span class='blinds'>Blinds: <InlineChips chips={10}/>/<InlineChips chips={20}/></span>
-        <span class='next-level'>Next Level: 02:00 </span>
+        <span class='name'>Texas No-Limit Hold'em Headsup Tournament</span>
+        <span class='desc'>A Texas No-Limit Hold'em Headsup Tournament organized by liheadsup</span>
+        <span class='players'><span>Players Left:</span> <span>3</span></span>
+        <span class='blinds'><span>Blinds:</span> <span><InlineChips chips={10}/>/<InlineChips chips={20}/></span></span>
+        <span class='next-level'><span>Next Level:</span> 02:00 </span>
+        <span class='prize'><span>Prize:</span><InlineChips chips={3000}/></span>
     </div>
     </>)
 }
 
-export const MiddleNHands = (props: { people: PersonProps[], middle: MiddleCards, pot?: number, u_pots: string }) => {
+export const MiddleNHands = (props: { people: PersonProps[], middle: MiddleCards, pot: Uk<number> }) => {
     return (<>
         <div class='logo'>
             <span>li</span><span>headsup</span>
         </div>
         <div class='dealer'>
             <EventInfo/>
-            <CardHolder class="updatable updated"/>
+            <CardHolder class=''/>
             <Middle {...props.middle} />
-            <div class={'pots pops ' + props.u_pots}>
+            <div class={'pots pops ' + props.pot.klass}>
                 <h3>Main Pots</h3>
-                <Show when={props.pot}>{ pot =>
+                <Show when={props.pot.value}>{ pot =>
                    <Chips class='pop' chips={pot()}/>
                 }</Show>
             </div>
@@ -230,18 +233,37 @@ export const MiddleNHands = (props: { people: PersonProps[], middle: MiddleCards
 
 export const Showcase = () => {
 
-    const [middle, set_middle] = createSignal<MiddleCards>({ flop: ['Ah', 'Ac', 'Ad'], turn: 'Th', river: 'Js'})
+    const [_flop, set_flop] = createSignal<[Card, Card, Card] | undefined>(undefined)
+    const [_pot, set_pot] = createSignal<number | undefined>(undefined)
+
+    const flop: Accessor<[Card, Card, Card] | undefined> = () => _flop()
+    const turn = () => undefined
+    const river = () => undefined
+    const pot = () => _pot()
+
+    let u_flop = uklass(flop, { update_delay: 2000, exit_delay: 300})
+    let u_turn = uklass(turn, { update_delay: 3000, exit_delay: 300})
+    let u_river = uklass(river, { update_delay: 3000, exit_delay: 300})
+
+    let u_pot = uklass(pot, { update_delay: 1000, exit_delay: 1000 })
+
+    const middle = createMemo(() => ({ flop: u_flop, turn: u_turn, river: u_river }))
 
     setTimeout(() => {
-        set_middle({ flop: ['Ah', 'Ad', 'Ac']})
+        set_flop(['Ah', 'Ad', 'Ac'])
+        set_pot(100)
     }, 1000)
+    setTimeout(() => {
+        set_flop(undefined)
+        set_pot(undefined)
+    }, 4000)
 
     return (<>
     <div class='showcase'>
         <ShowcaseSection header='Card'>
             <>
             <div class='hands'>
-                <MiddleNHands u_pots='' pot={100} people={[{turn_left: 20, chips: 1000, state: '@', bet: { chips: 100, raise: 20 }}, { state: '@', chips: 100 }]} middle={middle()}/>
+                <MiddleNHands pot={u_pot} people={[{turn_left: 20, chips: 1000, state: '@', bet: { chips: 100, raise: 20 }}, { state: '@', chips: 100 }]} middle={{...middle()}}/>
             <div class='buttons'>
                 <button>Deal Cards</button>
                 <button>Deal Flop</button>
@@ -273,7 +295,7 @@ type UOptions = {
     exit_delay?: number
 }
 
-const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): [Accessor<string>, Accessor<T | undefined>] {
+const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): Uk<T> {
 
     let u_delay = opts.update_delay ?? 0
     let e_delay = opts.exit_delay ?? 0
@@ -292,12 +314,9 @@ const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): [Ac
 
             clear_id2 = setTimeout(() => {
                 set_klass('updatable updating')
-            }, 0)
-
-            clear_id = setTimeout(() => {
-              set_klass('updatable updated')
-            }, u_delay)
+            }, 300)
         }
+
         if (p && !t) {
             set_klass('updatable exiting')
             clear_id = setTimeout(() => {
@@ -306,6 +325,12 @@ const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): [Ac
                   set_klass('updatable')
                 })
             }, e_delay)
+        } else {
+            if (t !== p) {
+                clear_id = setTimeout(() => {
+                  set_klass('updatable updated')
+                }, u_delay)
+            }
         }
 
         onCleanup(() => { 
@@ -317,5 +342,5 @@ const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): [Ac
 
     }))
 
-    return [klass, current]
+    return {get klass() { return klass() }, get value() { return current() } }
 }
