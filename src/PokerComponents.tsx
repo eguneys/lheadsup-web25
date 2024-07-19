@@ -1,4 +1,4 @@
-import { Card, Side, Suit } from 'phevaluatorjs25'
+import { Card, Card5, Side, Suit, split_cards } from 'phevaluatorjs25'
 import './Components.scss'
 import { Accessor, batch, createEffect, createMemo, createSignal, Index, JSX, Match, on, onCleanup, Show, Switch } from "solid-js"
 
@@ -98,13 +98,13 @@ export const Hand = (props: HandCards) => {
     </>)
 }
 
-type Uk<T> = { klass: string, value: T | undefined }
+type Uk<T> = { resolve_on_updated: Promise<void>, updated: boolean, klass: string, value: T | undefined }
 
 
 type CardProp = { card: Uk<Card>, elevate: Uk<boolean>, back: Uk<boolean> } 
 & { 
-    _set_card: (_: Card | undefined) => void 
-    _set_elevate: (_: boolean | undefined) => void 
+    _set_card: (_: Card | undefined) => Promise<void> 
+    _set_elevate: (_: boolean | undefined) => Promise<void>
     _set_back: (_: boolean | undefined) => void 
 }
 type HandCards = { hand: [CardProp, CardProp] }
@@ -279,9 +279,18 @@ export const UCardProper = (opts: UOptions): CardProp => {
         card,
         elevate,
         back,
-        _set_card,
-        _set_elevate,
-        _set_back
+        _set_card(_: Card | undefined) {
+            _set_card(_)
+            return card.resolve_on_updated
+        },
+        _set_elevate(_: boolean | undefined) {
+            _set_elevate(_)
+            return elevate.resolve_on_updated
+        },
+        _set_back(_: boolean | undefined) {
+            _set_back(_)
+            return back.resolve_on_updated
+        }
     }
 }
 
@@ -290,7 +299,7 @@ export const UCardProper2 = (opts: UOptions) => {
     cards: [UCardProper(opts), UCardProper(opts)] as [CardProp, CardProp],
     _set_cards(cards: [Card, Card] | undefined) {
         this.cards[0]._set_card(cards?.[0])
-        this.cards[1]._set_card(cards?.[1])
+        return this.cards[1]._set_card(cards?.[1])
     }
    }
 }
@@ -301,7 +310,7 @@ export const UCardProper3 = (opts: UOptions) => {
     _set_cards(cards: [Card, Card, Card] | undefined) {
         this.cards[0]._set_card(cards?.[0])
         this.cards[1]._set_card(cards?.[1])
-        this.cards[2]._set_card(cards?.[2])
+        return this.cards[2]._set_card(cards?.[2])
     }
    }
 }
@@ -313,8 +322,8 @@ export const MiddleNProper = () => {
     const [_showdown_info, _set_showdown_info] = createSignal<string | undefined>(undefined)
 
     let u_flop = UCardProper3({ init_delay: 300, update_delay: 2000, exit_delay: 300})
-    let u_turn = UCardProper({ init_delay: 2000, update_delay: 3000, exit_delay: 300})
-    let u_river = UCardProper({ init_delay: 4000, update_delay: 3000, exit_delay: 300})
+    let u_turn = UCardProper({ init_delay: 300, update_delay: 3000, exit_delay: 300})
+    let u_river = UCardProper({ init_delay: 300, update_delay: 3500, exit_delay: 300})
 
     let u_pot = uklass(_pot, { update_delay: 300, exit_delay: 1000 })
     let u_showdown_info = uklass(_showdown_info, { update_delay: 6000, exit_delay: 1000 })
@@ -322,6 +331,9 @@ export const MiddleNProper = () => {
 
     const middle = createMemo(() => ({ flop: u_flop.cards, turn: u_turn, river: u_river, showdown_info: u_showdown_info }))
     const people = createMemo(() => _people())
+
+    let resolve = Promise.resolve()
+
 
     return {
         pot: u_pot,
@@ -332,20 +344,46 @@ export const MiddleNProper = () => {
             return people()
         },
         set flop(cards: [Card, Card, Card] | undefined) {
-            u_flop._set_cards(cards)
+            resolve = resolve.then(() => u_flop._set_cards(cards))
         },
         set turn(card: Card | undefined) {
-            u_turn._set_card(card)
+            resolve = resolve.then(() => u_turn._set_card(card))
         },
         set river(card: Card | undefined) {
-            u_river._set_card(card)
+            resolve = resolve.then(() => u_river._set_card(card))
         },
         set total_pot(pot: number | undefined) {
             _set_pot(pot)
         },
+        set showdown_info(info: SetShowdownInfo | undefined) {
+            if (!info) {
+                _set_showdown_info(undefined)
+                return
+            }
+            resolve = resolve.then(() => {
+                _set_showdown_info(info.desc)
+            })
+
+            let cards = info.cards
+            resolve = resolve.then(() => {
+                u_flop.cards[0]._set_elevate(cards.includes(u_flop.cards[0].card.value ?? ''))
+                u_flop.cards[1]._set_elevate(cards.includes(u_flop.cards[1].card.value ?? ''))
+                u_flop.cards[2]._set_elevate(cards.includes(u_flop.cards[2].card.value ?? ''))
+                u_turn._set_elevate(cards.includes(u_turn.card.value ?? ''))
+                u_river._set_elevate(cards.includes(u_river.card.value ?? ''))
+                let hand = people()[info.side - 1].hand
+                hand[0]._set_elevate(cards.includes(hand[0].card.value ?? ''))
+                return hand[1]._set_elevate(cards.includes(hand[1].card.value ?? ''))
+            })
+        }
     }
 }
 
+type SetShowdownInfo = {
+    desc: string,
+    cards: Card5,
+    side: Side
+}
 
 
 export const Showcase = () => {
@@ -359,8 +397,11 @@ export const Showcase = () => {
         u_m.river = 'Ts'
         u_m.total_pot = 100
         u_m.people[0]._set_chips(1000)
-        //u_m._set_showdown_info('High Card A J 3')
-        //u_flop.cards[0]._set_elevate(true)
+        u_m.showdown_info = {
+            desc: 'High Card A J 3',
+            cards: split_cards('AhAcAdTdTs') as Card5,
+            side: 1
+        }
     }, 1000)
     setTimeout(() => {
 
@@ -369,6 +410,7 @@ export const Showcase = () => {
     }, 5000)
     setTimeout(() => {
         u_m.turn = undefined
+        u_m.flop = undefined
         u_m.river = undefined
         u_m.total_pot = undefined
     }, 10000)
@@ -415,23 +457,30 @@ const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): Uk<
 
     let i_delay = (opts.init_delay ?? 0) + 300
     let u_delay = i_delay + (opts.update_delay ?? 0)
-    let e_delay = u_delay + (opts.exit_delay ?? 0)
+    let e_delay = (opts.exit_delay ?? 0)
 
+    const [updated, set_updated] = createSignal(false)
     const [klass, set_klass] = createSignal<string>('updatable')
     const [current, set_current] = createSignal<T | undefined>(undefined)
+    let resolves: (()=> void)[] = []
 
     createEffect(on(target, (t, p) => {
         let clear_id2: number
         let clear_id: number
         if (p && !t) {
+
             set_klass('updatable exiting')
             clear_id = setTimeout(() => {
                 batch(() => {
                   set_current(undefined)
                   set_klass('updatable')
+
+                  resolves.forEach(_ => _())
+                  resolves = []
                 })
             }, e_delay)
         } else if (p !== t) {
+            set_updated(false)
             set_klass('updatable init')
 
             clear_id = setTimeout(() => {
@@ -443,17 +492,33 @@ const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): Uk<
 
             clear_id2 = setTimeout(() => {
                 set_klass('updatable updated')
+                set_updated(true)
+                resolves.forEach(_ => _())
+                resolves = []
             }, u_delay)
         }
 
         onCleanup(() => { 
-            set_current(() => t)
-            set_klass('updatable')
+            batch(() => {
+                set_updated(false)
+                set_current(() => t)
+                set_klass('updatable')
+                resolves.forEach(_ => _())
+                resolves = []
+            })
             clearTimeout(clear_id) 
             clearTimeout(clear_id2) 
+
         })
 
     }))
 
-    return {get klass() { return klass() }, get value() { return current() } }
+    return { 
+        get resolve_on_updated() {
+            return new Promise<void>(resolve => { resolves.push(resolve) })
+        }, 
+        get updated() { return updated() }, 
+        get klass() { return klass() }, 
+        get value() { return current() }
+    }
 }
