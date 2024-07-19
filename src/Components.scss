@@ -206,7 +206,8 @@
                     margin-right: 0.5em;
                 }
     
-                .card-wrap {
+                .turn,
+                .river {
                     flex: 2;
                 }
             }
@@ -388,7 +389,7 @@
 
                 .back {
                     background-size: cover;
-                    transform: rotateY(180deg);
+                    transform: translateX(-8px) rotateY(180deg);
                 }
             }
 
@@ -531,10 +532,6 @@
 
         padding-bottom: 0.4em;
 
-        &.init {
-            visibility: hidden;
-        }
-
         &::after {
             content: '';
             position: absolute;
@@ -573,13 +570,13 @@
 .hands {
     .pops.updatable {
         .pop {
-            transition: transform .26s;
-            transform: scale(0);
+            transition: scale .3s;
         }
     }
-    .pops.updating {
+
+    .pops.updatable.init {
         .pop {
-            transform: scale(1.2);
+            animation: pop .3s forwards;
         }
     }
 
@@ -589,10 +586,20 @@
         }
     }
 
+    .pops.exiting {
+        .pop {
+            animation: pop .3s reverse forwards;
+        }
+    }
+    
     .updatable.init {
-
         visibility: visible;
+        .card {
+            transform: scale(0);
+        }
+    }
 
+    .updatable.updating {
         .card {
             animation: pop .3s forwards;
         }
@@ -606,7 +613,7 @@
     }
 
     .updatable.exiting {
-        .card {
+       .card {
             transform: translateY(-10%) rotateZ(10deg);
             opacity: 0;
         }
@@ -614,7 +621,7 @@
 }
 
 @keyframes pop {
-    0% { transform: scale(0.8); }
+    0% { transform: scale(0.0); }
     50% { transform: scale(1.2); }
     100% { transform: scale(1); }
 }

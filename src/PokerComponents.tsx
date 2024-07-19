@@ -98,7 +98,7 @@ export const Hand = (props: HandCards) => {
 
 type Uk<T> = { klass: string, value: T | undefined }
 
-type HandCards = { hand?: [Card, Card] }
+type HandCards = { hand: Uk<[Card, Card]> }
 type MiddleCards = { flop: Uk<[Card, Card, Card]>, turn: Uk<Card>, river: Uk<Card> }
 
 export const Middle = (props: MiddleCards) => {
@@ -114,8 +114,12 @@ export const Middle = (props: MiddleCards) => {
               <CardHolder class='flop-1' card={props.flop.value?.[1]}/>
               <CardHolder class='flop-2' card={props.flop.value?.[2]}/>
             </div>
-            <CardHolder class={'turn' + props.turn.klass} card={props.turn.value} />
-            <CardHolder class={'river' + props.river.klass} card={props.river.value} />
+            <div class={'turn ' + props.turn.klass}>
+                <CardHolder card={props.turn.value} />
+            </div>
+            <div class={'river ' + props.river.klass}>
+                <CardHolder card={props.river.value} />
+            </div>
         </div>
     </div>
     </>)
@@ -236,29 +240,37 @@ export const Showcase = () => {
     const [_flop, _set_flop] = createSignal<[Card, Card, Card] | undefined>(undefined)
     const [_turn, _set_turn] = createSignal<Card | undefined>(undefined)
     const [_river, _set_river] = createSignal<Card | undefined>(undefined)
-    const [_pot, set_pot] = createSignal<number | undefined>(undefined)
+    const [_pot, _set_pot] = createSignal<number | undefined>(undefined)
 
     const flop: Accessor<[Card, Card, Card] | undefined> = () => _flop()
     const turn = () => _turn()
     const river = () => _river()
     const pot = () => _pot()
 
-    let u_flop = uklass(flop, { update_delay: 2000, exit_delay: 300})
-    let u_turn = uklass(turn, { update_delay: 3000, exit_delay: 300})
-    let u_river = uklass(river, { update_delay: 3000, exit_delay: 300})
+    let u_flop = uklass(flop, { init_delay: 300, update_delay: 2000, exit_delay: 300})
+    let u_turn = uklass(turn, { init_delay: 2000, update_delay: 3000, exit_delay: 300})
+    let u_river = uklass(river, { init_delay: 4000, update_delay: 3000, exit_delay: 300})
 
-    let u_pot = uklass(pot, { update_delay: 1000, exit_delay: 1000 })
+    let u_pot = uklass(pot, { update_delay: 300, exit_delay: 1000 })
 
     const middle = createMemo(() => ({ flop: u_flop, turn: u_turn, river: u_river }))
 
     setTimeout(() => {
         _set_flop(['Ah', 'Ad', 'Ac'])
-        set_pot(100)
+        _set_turn('Td')
+        _set_river('Ts')
+        _set_pot(100)
     }, 1000)
     setTimeout(() => {
+
+        _set_pot(2000)
+    }, 5000)
+    setTimeout(() => {
         _set_flop(undefined)
-        set_pot(undefined)
-    }, 4000)
+        _set_turn(undefined)
+        _set_river(undefined)
+        _set_pot(undefined)
+    }, 10000)
 
     return (<>
     <div class='showcase'>
@@ -293,14 +305,16 @@ const ShowcaseSection = (props: { header: string, children: JSX.Element }) => {
 
 
 type UOptions = {
+    init_delay?: number,
     update_delay?: number,
     exit_delay?: number
 }
 
 const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): Uk<T> {
 
-    let u_delay = opts.update_delay ?? 0
-    let e_delay = opts.exit_delay ?? 0
+    let i_delay = opts.init_delay ?? 0
+    let u_delay = i_delay + (opts.update_delay ?? 0)
+    let e_delay = u_delay + (opts.exit_delay ?? 0)
 
     const [klass, set_klass] = createSignal<string>('updatable')
     const [current, set_current] = createSignal<T | undefined>(undefined)
@@ -308,17 +322,6 @@ const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): Uk<
     createEffect(on(target, (t, p) => {
         let clear_id2: number
         let clear_id: number
-        if (!p && t) {
-            batch(() => {
-              set_current(() => t)
-              set_klass('updatable init')
-            })
-
-            clear_id2 = setTimeout(() => {
-                set_klass('updatable updating')
-            }, 300)
-        }
-
         if (p && !t) {
             set_klass('updatable exiting')
             clear_id = setTimeout(() => {
@@ -327,12 +330,19 @@ const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): Uk<
                   set_klass('updatable')
                 })
             }, e_delay)
-        } else {
-            if (t !== p) {
-                clear_id = setTimeout(() => {
-                  set_klass('updatable updated')
-                }, u_delay)
-            }
+        } else if (p !== t) {
+            batch(() => {
+              set_current(() => t)
+              set_klass('updatable init')
+            })
+
+            clear_id = setTimeout(() => {
+                set_klass('updatable updating')
+            }, 300 + i_delay)
+
+            clear_id2 = setTimeout(() => {
+                set_klass('updatable updated')
+            }, u_delay)
         }
 
         onCleanup(() => { 
