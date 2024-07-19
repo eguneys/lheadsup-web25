@@ -1,8 +1,23 @@
 import { Card, Suit } from 'phevaluatorjs25'
 import './Components.scss'
-import { Index, JSX, Match, Show, Switch } from "solid-js"
+import { Accessor, batch, createEffect, createMemo, createSignal, Index, JSX, Match, on, onCleanup, Show, Switch } from "solid-js"
 
 const side_klass = ['one', 'two', 'three', 'four', 'five', 'six']
+
+const bet_klass = (bet: Bet) => {
+    if (bet.raise) {
+        return 'raise'
+    }
+    if (bet.fold) {
+        return 'fold'
+    }
+    if (bet.check) {
+        return 'check'
+    }
+    if (bet.call) {
+        return 'call'
+    }
+}
 
 const suit_long = (suit: Suit) => {
     switch (suit) {
@@ -38,14 +53,15 @@ export const SuitView = (props: { suit: Suit }) => {
     </>)
 }
 
-export const CardView = (props: { card: Card }) => {
+export const CardView = (props: { class?: string, card: Card }) => {
 
     let [rank, suit] = props.card.split('')
     rank = rank.replace('T', '10')
+    let klass = createMemo(() => props.class ? 'card ' + props.class : 'card')
 
 
     return (<>
-    <div class='card'>
+    <div class={klass()}>
       <div class='inner'>
         <div class={'front decoration ' + suit_long(suit)}>
                <div class='rank'>{rank}</div>
@@ -61,10 +77,10 @@ export const CardView = (props: { card: Card }) => {
 export const CardHolder = (props: { class?: string, card?: Card }) => {
 
     return (<>
-      <div class={'card-wrap ' + (props.class ?? '')  }>
+      <div class='card-wrap'>
         <div class='card-holder'></div>
         <Show when={props.card}>{card => 
-          <CardView card={card()}></CardView>
+          <CardView {...props} card={card()}></CardView>
         }</Show>
       </div>
     </>)
@@ -87,27 +103,35 @@ export const Middle = (props: MiddleCards) => {
     return (<>
     
     <div class='middle'>
-        <div class='flop updatable updated'>
-          <CardHolder class='flop-0' card={props.flop?.[0]}/>
-          <CardHolder class='flop-1' card={props.flop?.[1]}/>
-          <CardHolder class='flop-2' card={props.flop?.[2]}/>
+        <div class='showdown-info'>
+            <span>Ace High, 3 5</span>
         </div>
-        <CardHolder class='turn updatable updated' card={props.turn} />
-        <CardHolder class='river updatable updated' card={props.river} />
+        <div class='ftr'>
+            <div class='flop updatable updated'>
+              <CardHolder class='flop-0' card={props.flop?.[0]}/>
+              <CardHolder class='flop-1' card={props.flop?.[1]}/>
+              <CardHolder class='flop-2' card={props.flop?.[2]}/>
+            </div>
+            <CardHolder class='turn updatable updated' card={props.turn} />
+            <CardHolder class='river updatable updated' card={props.river} />
+        </div>
     </div>
     </>)
 }
 
-export const Chips = (props: { chips: number }) => {
-    return (<> <span class='pot chips'>{props.chips}<span>li</span></span> </>)
+export const Chips = (props: { class?: string, chips: number }) => {
+    return (<> <span class={'pot chips ' + (props.class ?? '')}>{props.chips}<span>li</span></span> </>)
 }
 export const InlineChips = (props: { chips: number }) => {
     return (<> <span class='inline chips'>{props.chips}<span>li</span></span> </>)
 }
 
 type Bet = {
+    call?: true,
+    check?: true,
+    fold?: true,
     raise?: number
-    chips: number
+    chips?: number
 }
 
 type PersonProps = HandCards & {
@@ -128,16 +152,32 @@ export const Person = (props: PersonProps) => {
 
     return (<>
         <div class={'person ' + klass }>
-            <Hand {...props} />
+            <div class='handle'>
+                <span>Handle</span>
+                <Hand {...props} />
+            </div>
             <div class='stack-wrap'>
                 <div class='bets'>
-                    <div class='bet'>
-                        <Show when={props.bet?.raise}>{ raise => 
-                           <span class='updatable updated'>Raise <InlineChips chips={raise()}/></span>
-                        }</Show>
-                    </div>
-                    <Show when={props.bet}>{ bet => 
-                        <Chips chips={bet().chips} />
+                    <Show when={props.bet}>{bet =>
+                        <>
+                            <div class={'bet updatable updated ' + bet_klass(bet())}>
+                                <Show when={bet().raise}>{raise =>
+                                    <span class='raise'>Raise <InlineChips chips={raise()} /></span>
+                                }</Show>
+                                <Show when={bet().fold}>
+                                    <span>Fold</span>
+                                </Show>
+                                <Show when={bet().check}>
+                                    <span>Check</span>
+                                </Show>
+                                <Show when={bet().call}>
+                                    <span>Call</span>
+                                </Show>
+                            </div>
+                            <Show when={bet().chips}>{chips =>
+                                <Chips chips={chips()} />
+                            }</Show>
+                        </>
                     }</Show>
                 </div>
                 <div class='stack updatable updated'> <h3>Stack</h3> <Chips chips={props.chips} /></div>
@@ -146,15 +186,33 @@ export const Person = (props: PersonProps) => {
     </>)
 }
 
-
-export const MiddleNHands = (props: { people: PersonProps[], middle: MiddleCards }) => {
+export const EventInfo = () => {
     return (<>
+    <div class='event'>
+        <span class='name'>Headsup Tournament</span>
+        <span class='desc'>A Headsup Tournament organized by website</span>
+        <span class='players'>Players Left: <span>3</span></span>
+        <span class='blinds'>Blinds: <InlineChips chips={10}/>/<InlineChips chips={20}/></span>
+        <span class='next-level'>Next Level: 02:00 </span>
+        <span class='players'>Players: <span>3</span></span>
+    </div>
+    </>)
+}
+
+export const MiddleNHands = (props: { people: PersonProps[], middle: MiddleCards, pot?: number, u_pots: string }) => {
+    return (<>
+        <div class='logo'>
+            <span>li</span><span>headsup</span>
+        </div>
         <div class='dealer'>
-            <CardHolder/>
+            <EventInfo/>
+            <CardHolder class="updatable updated"/>
             <Middle {...props.middle} />
-            <div class='pots updatable updated'>
+            <div class={'pots pops ' + props.u_pots}>
                 <h3>Main Pots</h3>
-                <Chips chips={10}/>
+                <Show when={props.pot}>{ pot =>
+                   <Chips class='pop' chips={pot()}/>
+                }</Show>
             </div>
         </div>
         <div class='people'>
@@ -167,12 +225,18 @@ export const MiddleNHands = (props: { people: PersonProps[], middle: MiddleCards
 
 export const Showcase = () => {
 
+    const [middle, set_middle] = createSignal<MiddleCards>({ flop: ['Ah', 'Ac', 'Ad'], turn: 'Th', river: 'Js'})
+
+    setTimeout(() => {
+        set_middle({ flop: ['Ah', 'Ad', 'Ac']})
+    }, 1000)
+
     return (<>
     <div class='showcase'>
         <ShowcaseSection header='Card'>
             <>
             <div class='hands'>
-                <MiddleNHands people={[{chips: 1000, state: '@', bet: { chips: 100, raise: 20 }}, { state: 'i', chips: 100}]} middle={{}}/>
+                <MiddleNHands pot={100} people={[{chips: 1000, state: '@', bet: { chips: 100, raise: 20 }}, { state: 'i', chips: 100, bet: { check: true }}]} middle={middle()}/>
             <div class='buttons'>
                 <button>Deal Cards</button>
                 <button>Deal Flop</button>
@@ -196,4 +260,57 @@ const ShowcaseSection = (props: { header: string, children: JSX.Element }) => {
         </div>
     </section>
     </>)
+}
+
+
+type UOptions = {
+    update_delay?: number,
+    exit_delay?: number
+}
+
+const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): [Accessor<string>, Accessor<T | undefined>] {
+
+    let u_delay = opts.update_delay ?? 0
+    let e_delay = opts.exit_delay ?? 0
+
+    const [klass, set_klass] = createSignal<string>('updatable')
+    const [current, set_current] = createSignal<T | undefined>(undefined)
+
+    createEffect(on(target, (t, p) => {
+        let clear_id2: number
+        let clear_id: number
+        if (!p && t) {
+            batch(() => {
+              set_current(() => t)
+              set_klass('updatable init')
+            })
+
+            clear_id2 = setTimeout(() => {
+                set_klass('updatable updating')
+            }, 0)
+
+            clear_id = setTimeout(() => {
+              set_klass('updatable updated')
+            }, u_delay)
+        }
+        if (p && !t) {
+            set_klass('updatable exiting')
+            clear_id = setTimeout(() => {
+                batch(() => {
+                  set_current(undefined)
+                  set_klass('updatable')
+                })
+            }, e_delay)
+        }
+
+        onCleanup(() => { 
+            set_current(() => t)
+            set_klass('updatable')
+            clearTimeout(clear_id) 
+            clearTimeout(clear_id2) 
+        })
+
+    }))
+
+    return [klass, current]
 }
