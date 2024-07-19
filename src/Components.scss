@@ -79,9 +79,11 @@
                   flex: 0 0 28%;
                 }
                 &.two {
-                    align-self: center;
+                  align-self: center;
                   flex: 0 0 24%;
                 }
+
+
             }
         }
 
@@ -198,18 +200,11 @@
                 display: flex;
                 gap: 0.2em;
                 padding: 1em;
-    
-                .flop {
-                    flex: 6;
-                    display: flex;
-                    gap: 0.2em;
-                    margin-right: 0.5em;
+
+                .flop:nth-child(3) {
+                    margin-right: .4em;
                 }
-    
-                .turn,
-                .river {
-                    flex: 2;
-                }
+
             }
         }
         }
@@ -301,6 +296,8 @@
                     display: flex;
                     flex-flow: column;
                     justify-content: stretch;
+                    flex: 0 0 3em;
+                    width: 3em;
     
                     .bets {
                         flex: 1;
@@ -360,6 +357,10 @@
             top: 50%;
             left: 50%;
         }
+
+        .elevate {
+            width: 100%;
+            height: 100%;
 
         .card {
             width: 100%;
@@ -478,6 +479,7 @@
                 }
             }
         }
+        }
 
         .card.back {
             background: none;
@@ -526,7 +528,7 @@
 
 .hands {
 
-    .updatable {
+    .updatable:not(.card, .elevate) {
 
         position: relative;
 
@@ -557,11 +559,37 @@
     }
 
 
-    .stack.updatable,
-    .hand.updatable {
+    .stack.updatable.updated,
+    .hand.updatable.updated {
         &::after {
             width: 80%;
             opacity: 1;
+        }
+    }
+}
+
+.hands {
+    .updatable.stack {
+        .pot {
+            position: relative;
+        }
+
+        .pot::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0;
+            top: 0;
+            left: 0;
+            transition: opacity .2s;
+        }
+    }
+
+    .updating.stack {
+        .pot::after {
+            animation: flash .3s forwards;
         }
     }
 }
@@ -591,33 +619,69 @@
             animation: pop .3s reverse forwards;
         }
     }
+
+
+    .elevate {
+
+        &.updatable.updating {
+            .card {
+                transform: translateY(-10%);
+                opacity: 1
+            }
+        }
+    }
     
-    .updatable.init {
-        visibility: visible;
-        .card {
-            transform: scale(0);
-        }
+    .flop,
+    .turn,
+    .river {
+            &.updatable.init {
+                .card {
+                    transform: scale(0);
+                }
+            }
+
+            &.updatable.updating {
+                .card {
+                    animation: pop .3s forwards;
+                }
+            }
+
+            &.updatable.init,
+            &.updatable.updating {
+                .card .inner {
+                    transform: rotateY(180deg);
+                }
+            }
+
+            &.updatable.exiting {
+               .card {
+                    transform: translateY(-10%) rotateZ(10deg);
+                    opacity: 0;
+                }
+            }
     }
 
-    .updatable.updating {
-        .card {
-            animation: pop .3s forwards;
-        }
-    }
+    .showdown-info {
 
-    .updatable.init,
-    .updatable.updating {
-        .card .inner {
-            transform: rotateY(180deg);
-        }
-    }
+        transition: opacity .3s;
 
-    .updatable.exiting {
-       .card {
-            transform: translateY(-10%) rotateZ(10deg);
-            opacity: 0;
+        &.updatable:not(.updating, .updated, .exiting),
+        &.updatable.init {
+          visibility: hidden;
+          opacity: 0;
         }
+
+        &.updatable.updating {
+            opacity: 1;
+        }
+
     }
+}
+
+
+@keyframes flash {
+    40% { opacity: .7 }
+    90% { opacity: .9 }
 }
 
 @keyframes pop {
