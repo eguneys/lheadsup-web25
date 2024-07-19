@@ -233,12 +233,14 @@ export const MiddleNHands = (props: { people: PersonProps[], middle: MiddleCards
 
 export const Showcase = () => {
 
-    const [_flop, set_flop] = createSignal<[Card, Card, Card] | undefined>(undefined)
+    const [_flop, _set_flop] = createSignal<[Card, Card, Card] | undefined>(undefined)
+    const [_turn, _set_turn] = createSignal<Card | undefined>(undefined)
+    const [_river, _set_river] = createSignal<Card | undefined>(undefined)
     const [_pot, set_pot] = createSignal<number | undefined>(undefined)
 
     const flop: Accessor<[Card, Card, Card] | undefined> = () => _flop()
-    const turn = () => undefined
-    const river = () => undefined
+    const turn = () => _turn()
+    const river = () => _river()
     const pot = () => _pot()
 
     let u_flop = uklass(flop, { update_delay: 2000, exit_delay: 300})
@@ -250,11 +252,11 @@ export const Showcase = () => {
     const middle = createMemo(() => ({ flop: u_flop, turn: u_turn, river: u_river }))
 
     setTimeout(() => {
-        set_flop(['Ah', 'Ad', 'Ac'])
+        _set_flop(['Ah', 'Ad', 'Ac'])
         set_pot(100)
     }, 1000)
     setTimeout(() => {
-        set_flop(undefined)
+        _set_flop(undefined)
         set_pot(undefined)
     }, 4000)
 
