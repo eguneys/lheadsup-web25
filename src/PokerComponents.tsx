@@ -138,7 +138,8 @@ type PersonProps = HandCards & {
     class?: string,
     bet?: Bet,
     chips: number,
-    state: string
+    state: string,
+    turn_left?: number
 }
 
 export const Person = (props: PersonProps) => {
@@ -157,6 +158,11 @@ export const Person = (props: PersonProps) => {
                 <Hand {...props} />
             </div>
             <div class='stack-wrap'>
+                <Show when={props.turn_left}>{ turn_left =>
+                    <>
+                    <div class='turn-left'><div class='bar' style={`width: ${turn_left()}%;`}></div></div>
+                    </>
+                }</Show>
                 <div class='bets'>
                     <Show when={props.bet}>{bet =>
                         <>
@@ -194,7 +200,6 @@ export const EventInfo = () => {
         <span class='players'>Players Left: <span>3</span></span>
         <span class='blinds'>Blinds: <InlineChips chips={10}/>/<InlineChips chips={20}/></span>
         <span class='next-level'>Next Level: 02:00 </span>
-        <span class='players'>Players: <span>3</span></span>
     </div>
     </>)
 }
@@ -236,7 +241,7 @@ export const Showcase = () => {
         <ShowcaseSection header='Card'>
             <>
             <div class='hands'>
-                <MiddleNHands pot={100} people={[{chips: 1000, state: '@', bet: { chips: 100, raise: 20 }}, { state: 'i', chips: 100, bet: { check: true }}]} middle={middle()}/>
+                <MiddleNHands u_pots='' pot={100} people={[{turn_left: 20, chips: 1000, state: '@', bet: { chips: 100, raise: 20 }}, { state: '@', chips: 100 }]} middle={middle()}/>
             <div class='buttons'>
                 <button>Deal Cards</button>
                 <button>Deal Flop</button>

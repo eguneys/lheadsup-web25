@@ -148,6 +148,11 @@
             .desc {
                 font-size: .8em;
             }
+
+            .blinds {
+                display: flex;
+                align-items: center;
+            }
         }
 
         .pots {
@@ -200,7 +205,6 @@
             }
         }
         }
-    
         .people {
     
             .person {
@@ -209,72 +213,95 @@
                 display: flex;
                 gap: 1em;
                 align-items: center;
-
+    
                 transition: all .6s;
-
+    
                 &.folded {
                     opacity: 0.3;
                     transform: translateY(10%);
                 }
-
+    
                 &.two {
                     flex-flow: row-reverse;
                 }
+                
+   
+                .stack-wrap {
 
-                .bet {
-                    $raise-color: rgb(249, 213, 10);
-                    $fold-color: rgb(170, 15, 15); 
-                    $check-color: rgb(213, 211, 221);
-                    $call-color: rgb(15, 170, 15);
+                .turn-left {
+                    justify-self: flex-end;
+                    flex: 0 0 1em;
 
-                    display: flex;
-                    justify-content: center;
-                    border-radius: 2px;
-                    padding: 0.4em;
-                    margin-bottom: 0.2em;
+                    border-radius: 2px 2px 0 0;
+                    background: linear-gradient(to right, rgba(171, 182, 164, .7), rgba(165, 70, 70, .7) 70%, rgba(250, 60, 60, .7));
+                    border-bottom: 2px solid rgba(0, 0, 0, .6);
+                    border-top: 1px solid gray;
 
-                    text-shadow: 1px 1px 4px black;
-
-                    background: linear-gradient(to bottom, rgba(134, 36, 85, 0.8), rgba(90, 50, 160, 0.8));
-                    color: $raise-color;
-
-                    &.raise {
-                        & > span {
-                            line-height: 1.6em;
-                          display: flex;
-                          gap: 0.6em;
-                          justify-content: space-between;
-                          align-items: center;
-                        }
-                    }
-
-                    &.fold {
-
-                        color: $fold-color;
-                    }
-
-                    &.check {
-                        color: $check-color;
-                    }
-
-                    &.call {
-                        color: $call-color;
+                    .bar {
+                        height: 100%;
+                        background: linear-gradient(to bottom, rgba(134, 36, 85, 0.8), rgba(90, 50, 160, 0.8));
                     }
                 }
+    
 
+                .bets {
+                    .bet {
+                        $raise-color: rgb(249, 213, 10);
+                        $fold-color: rgb(170, 15, 15);
+                        $check-color: rgb(213, 211, 221);
+                        $call-color: rgb(15, 170, 15);
+    
+                        display: flex;
+                        justify-content: center;
+                        border-radius: 2px;
+                        padding: 0.4em;
+                        margin-bottom: 0.2em;
+    
+                        text-shadow: 1px 1px 4px black;
+    
+                        background: linear-gradient(to bottom, rgba(134, 36, 85, 0.8), rgba(90, 50, 160, 0.8));
+                        color: $raise-color;
+    
+                        &.raise {
+                            &>span {
+                                line-height: 1.6em;
+                                display: flex;
+                                gap: 0.6em;
+                                justify-content: space-between;
+                                align-items: center;
+                            }
+                        }
+    
+                        &.fold {
+    
+                            color: $fold-color;
+                        }
+    
+                        &.check {
+                            color: $check-color;
+                        }
+    
+                        &.call {
+                            color: $call-color;
+                        }
+                    }
+                }
+                }
+    
                 .stack-wrap {
                     align-self: stretch;
                     display: flex;
                     flex-flow: column;
-                    justify-content: space-between;
-
+                    justify-content: stretch;
+    
                     .bets {
+                        flex: 1;
                         display: flex;
                         flex-flow: column;
                         align-items: center;
-                        justify-content: center;
+                        justify-content: space-between;
                     }
-
+    
                     .stack {
                         display: flex;
                         flex-flow: column;
@@ -282,45 +309,46 @@
                         align-items: center;
                     }
                 }
-
+    
                 .handle {
                     display: flex;
                     flex-flow: column-reverse;
                     flex: 1;
-
-                span {
-                    align-self: center;
-                    color: white;
-                }
-
-                .hand {
-                    display: flex;
-                    gap: 1em;
-                    margin: 0 -12%;
     
-                    .card-wrap:first-child {
-                        transform: translateX(25%) scale(.8) rotateZ(-10deg);
+                    span {
+                        align-self: center;
+                        color: white;
                     }
     
-                    .card-wrap:last-child {
-                        transform: translateX(-25%) scale(.8) rotateZ(10deg);
+                    .hand {
+                        display: flex;
+                        gap: 1em;
+                        margin: 0 -12%;
+    
+                        .card-wrap:first-child {
+                            transform: translateX(25%) scale(.8) rotateZ(-10deg);
+                        }
+    
+                        .card-wrap:last-child {
+                            transform: translateX(-25%) scale(.8) rotateZ(10deg);
+                        }
                     }
-                }
                 }
             }
         }
-    .card-wrap {
-        position: relative;
-        width: 100%;
-        aspect-ratio: 5/7;
-
-        .card-holder {
-            position: absolute;
-            width: 92%;
-            height: 92%;
-            border: 4px dashed white;
-            border-radius: 16px;
-            transform: translate(-50%, -50%);
+    
+        .card-wrap {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 5/7;
+    
+            .card-holder {
+                position: absolute;
+                width: 92%;
+                height: 92%;
+                border: 4px dashed white;
+                border-radius: 16px;
+                transform: translate(-50%, -50%);
             top: 50%;
             left: 50%;
         }
