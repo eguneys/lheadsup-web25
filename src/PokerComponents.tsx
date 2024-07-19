@@ -1,6 +1,8 @@
 import { Card, Suit } from 'phevaluatorjs25'
 import './Components.scss'
-import { JSX, Match, Switch } from "solid-js"
+import { Index, JSX, Match, Show, Switch } from "solid-js"
+
+const side_klass = ['one', 'two', 'three', 'four', 'five', 'six']
 
 const suit_long = (suit: Suit) => {
     switch (suit) {
@@ -43,7 +45,7 @@ export const CardView = (props: { card: Card }) => {
 
 
     return (<>
-    <div class='card back'>
+    <div class='card'>
       <div class='inner'>
         <div class={'front decoration ' + suit_long(suit)}>
                <div class='rank'>{rank}</div>
@@ -56,25 +58,128 @@ export const CardView = (props: { card: Card }) => {
     </>)
 }
 
+export const CardHolder = (props: { class?: string, card?: Card }) => {
 
-export const Hand = () => {
     return (<>
-    <div class='hand'>
-        <CardView card="Th"/>
-        <CardView card="Jc"/>
+      <div class={'card-wrap ' + (props.class ?? '')  }>
+        <div class='card-holder'></div>
+        <Show when={props.card}>{card => 
+          <CardView card={card()}></CardView>
+        }</Show>
+      </div>
+    </>)
+}
+
+
+export const Hand = (props: HandCards) => {
+    return (<>
+    <div class='hand updatable updated'>
+        <CardHolder card={props.hand?.[0]} />
+        <CardHolder card={props.hand?.[1]} />
     </div>
     </>)
 }
 
-export const Showcase = () => {
+type HandCards = { hand?: [Card, Card] }
+type MiddleCards = { flop?: [Card, Card, Card], turn?: Card, river?: Card }
+
+export const Middle = (props: MiddleCards) => {
     return (<>
     
+    <div class='middle'>
+        <div class='flop updatable updated'>
+          <CardHolder class='flop-0' card={props.flop?.[0]}/>
+          <CardHolder class='flop-1' card={props.flop?.[1]}/>
+          <CardHolder class='flop-2' card={props.flop?.[2]}/>
+        </div>
+        <CardHolder class='turn updatable updated' card={props.turn} />
+        <CardHolder class='river updatable updated' card={props.river} />
+    </div>
+    </>)
+}
+
+export const Chips = (props: { chips: number }) => {
+    return (<> <span class='pot chips'>{props.chips}<span>li</span></span> </>)
+}
+export const InlineChips = (props: { chips: number }) => {
+    return (<> <span class='inline chips'>{props.chips}<span>li</span></span> </>)
+}
+
+type Bet = {
+    raise?: number
+    chips: number
+}
+
+type PersonProps = HandCards & {
+    class?: string,
+    bet?: Bet,
+    chips: number,
+    state: string
+}
+
+export const Person = (props: PersonProps) => {
+
+
+    let klass = ''
+    if (props.state === '@') { klass += ' turn' }
+    if (props.state === 'i') { klass += ' in' }
+    if (props.state === 'f') { klass += ' folded' }
+    if (props.class) { klass += ' ' + props.class }
+
+    return (<>
+        <div class={'person ' + klass }>
+            <Hand {...props} />
+            <div class='stack-wrap'>
+                <div class='bets'>
+                    <div class='bet'>
+                        <Show when={props.bet?.raise}>{ raise => 
+                           <span class='updatable updated'>Raise <InlineChips chips={raise()}/></span>
+                        }</Show>
+                    </div>
+                    <Show when={props.bet}>{ bet => 
+                        <Chips chips={bet().chips} />
+                    }</Show>
+                </div>
+                <div class='stack updatable updated'> <h3>Stack</h3> <Chips chips={props.chips} /></div>
+            </div>
+        </div>
+    </>)
+}
+
+
+export const MiddleNHands = (props: { people: PersonProps[], middle: MiddleCards }) => {
+    return (<>
+        <div class='dealer'>
+            <CardHolder/>
+            <Middle {...props.middle} />
+            <div class='pots updatable updated'>
+                <h3>Main Pots</h3>
+                <Chips chips={10}/>
+            </div>
+        </div>
+        <div class='people'>
+            <Index each={props.people}>{(person, i) => 
+                <Person class={side_klass[i]} {...person()}/>
+            }</Index>
+        </div>
+    </>)
+}
+
+export const Showcase = () => {
+
+    return (<>
     <div class='showcase'>
         <ShowcaseSection header='Card'>
             <>
-              <div class='hands'>
-                  <Hand/>
-              </div>
+            <div class='hands'>
+                <MiddleNHands people={[{chips: 1000, state: '@', bet: { chips: 100, raise: 20 }}, { state: 'i', chips: 100}]} middle={{}}/>
+            <div class='buttons'>
+                <button>Deal Cards</button>
+                <button>Deal Flop</button>
+                <button>Deal Rest</button>
+                <button>Collect Cards</button>
+            </div>
+            </div>
             </>
         </ShowcaseSection>
     </div>

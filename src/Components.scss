@@ -25,145 +25,370 @@
 }
 
 .area {
+
+    .hands {
+
+        h3 {
+            text-align: center;
+            font-weight: normal;
+            color: rgb(250, 205, 197);
+            text-decoration: underline;
+        }
+    
+    }
+
+
     .hands {
         background: radial-gradient(rgb(70, 103, 80), rgb(44, 70, 52));
-        .hand {
-            margin: auto;
-            width: 50%;
+
+        display: flex;
+        flex-flow: column;
+        gap: 1em;
+        justify-content: center;
+        align-items: center;
+
+        .people {
+            display: flex;
+            align-self: stretch;
+            justify-content: space-around;
+            gap: 1em;
+
+            .person {
+                &.one {
+                  flex: 0 0 28%;
+                }
+                &.two {
+                    align-self: center;
+                  flex: 0 0 24%;
+                }
+            }
         }
+
+        .dealer {
+            padding: 1em;
+            display: flex;
+            align-self: stretch;
+            justify-content: center;
+            align-items: center;
+
+            & > .card-wrap {
+                flex: 0 0 8%;
+            }
+
+            .pots {
+                flex: 1;
+            }
+
+            .middle {
+                margin-left: 2em;
+                flex: 3;
+            }
+        }
+
     }
 }
 
 .hands {
 
-   .hand {
-       display: flex;
-       padding: 1em;
-       gap: 1em;
+    .chips {
+        display: inline-block;
 
+        line-height: 1.5em;
 
-       .card:first-child {
-        transform: translateX(50px) scale(.8) rotateZ(-10deg);
-       }
-       .card:last-child {
-        transform: translateX(-50px) scale(.8) rotateZ(10deg);
-       }
-   }
+        &:not(.inline) {
+          border: 2px dashed rgb(255, 222, 222);
+          border-radius: 10px;
+          padding: 0.8em;
+        }
 
-   .card.back {
-    background: none;
-   }
+        color: rgb(255, 199, 199);
 
-   .card:hover .inner,
-   .card.back .inner {
-    transform: rotateY(180deg);
-   }
-
-  .card {
-    width: 100%;
-    position: relative;
-    aspect-ratio: 5/7;
-
-    .inner {
-        width: 100%;
-        height: 100%;
-        transition: transform .8s;
-        transform-style: preserve-3d;
+        span {
+            font-style: italic;
+        }
     }
 
-    .inner {
-        .front, .back {
+    .dealer {
+
+        .pots {
+
+            display: flex;
+            flex-flow: column;
+            justify-content: center;
+            align-items: center;
+            gap: 1em;
+
+            .pot {
+                aspect-ratio: 1/1;
+            }
+        }
+    
+            .middle {
+                display: flex;
+                gap: 0.2em;
+                padding: 1em;
+
+                .flop {
+                    flex: 6;
+                    display: flex;
+                    gap: 0.2em;
+                    margin-right: 0.5em;
+                }
+
+                .card-wrap {
+                    flex: 2;
+                }
+            }
+        }
+
+        .people {
+
+            .person {
+
+                flex: 1;
+                display: flex;
+                gap: 1em;
+
+                transition: all .6s;
+
+                &.folded {
+                    opacity: 0.3;
+                    transform: translateY(10%);
+                }
+
+                &.two {
+                    flex-flow: row-reverse;
+                }
+
+                .stack-wrap {
+                    display: flex;
+                    flex-flow: column;
+                    justify-content: space-between;
+                }
+
+
+                .hand {
+                    flex: 1;
+                    display: flex;
+                    gap: 1em;
+                    margin: 0 -12%;
+    
+                    .card-wrap:first-child {
+                        transform: translateX(25%) scale(.8) rotateZ(-10deg);
+                    }
+    
+                    .card-wrap:last-child {
+                        transform: translateX(-25%) scale(.8) rotateZ(10deg);
+                    }
+                }
+            }
+        }
+    .card-wrap {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 5/7;
+
+        .card-holder {
             position: absolute;
+            width: 92%;
+            height: 92%;
+            border: 4px dashed white;
+            border-radius: 16px;
+            transform: translate(-50%, -50%);
+            top: 50%;
+            left: 50%;
+        }
+
+        .card {
             width: 100%;
             height: 100%;
-            backface-visibility: hidden;
+            position: absolute;
 
-            border: 3px solid rgb(1, 3, 20);
-            border-radius: 18px;
+            .inner {
+                width: 100%;
+                height: 100%;
+                transition: transform .8s;
+                transform-style: preserve-3d;
+            }
+
+            .inner {
+
+                .front,
+                .back {
+                    position: absolute;
+                    width: 100%;
+                    height: 100%;
+                    backface-visibility: hidden;
+
+                    border: 3px solid rgb(1, 3, 20);
+                    border-radius: 18px;
+                }
+
+                .back {
+                    background-size: cover;
+                    transform: rotateY(180deg);
+                }
+            }
+
+            .decoration {
+                width: 100%;
+                height: 100%;
+
+                background: linear-gradient(rgb(245, 245, 154) 0%, rgb(243, 243, 197) 8%, rgb(212, 212, 177) 99%, rgb(24, 24, 17));
+
+                .suit-left {
+                    position: absolute;
+                    top: 10%;
+                    left: 80%;
+                    width: 60%;
+                    transform: translate(-50%, -50%);
+                }
+
+                .suit-middle {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 150%;
+                    transform: translate(-50%, -50%);
+                }
+
+                .suit {
+                    width: 100%;
+                    height: 100%;
+                }
+
+                .rank {
+                    position: absolute;
+                    font-size: 4vw;
+                    font-weight: bold;
+                    top: 2%;
+                    left: 4%;
+                }
+
+
+                svg>path,
+                svg>polygon,
+                .rank {
+                    filter: drop-shadow(2px 2px 1px rgba(0, 0, 0, .7));
+                }
+
+                $dark-red: rgb(161, 23, 23);
+                $red: rgb(212, 32, 32);
+                $dark-blue: rgb(37, 37, 187);
+                $blue: rgb(38, 38, 214);
+
+
+                &.hearts,
+                &.diamonds {
+                    .rank {
+                        color: $dark-red;
+                    }
+
+                    svg {
+
+                        path,
+                        polygon {
+                            stroke: $dark-red;
+                            stroke-width: 10px;
+                            fill: $red;
+                        }
+                    }
+                }
+
+                &.clubs,
+                &.spades {
+                    .rank {
+                        color: $dark-blue;
+                    }
+
+                    .suit {
+                        svg {
+
+                            path,
+                            polygon {
+                                stroke: $dark-blue;
+                                stroke-width: 10px;
+                                fill: $blue;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        .back {
-            background-size: cover;
+        .card.back {
+            background: none;
+        }
+
+        //.card:hover .inner,
+        .card.back .inner {
             transform: rotateY(180deg);
         }
+
     }
 
-    .decoration {
-      width: 100%;
-      height: 100%;
-
-      background: linear-gradient(rgb(245, 245, 154) 0%, rgb(243, 243, 197) 8%, rgb(212, 212, 177) 99%, rgb(24, 24, 17));
-
-      .suit-left {
-        position: absolute;
-        top: 10%;
-        left: 80%;
-        width: 60%;
-        transform: translate(-50%, -50%);
-      }
-
-      .suit-middle {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 150%;
-        transform: translate(-50%, -50%);
-      }
-
-      .suit {
-        width: 100%;
-        height: 100%;
-      }
-
-      .rank {
-        position: absolute;
-        font-size: 6em;
-        font-weight: bold;
-        top: 2%;
-        left: 4%;
-      }
+}
 
 
-      svg > path,
-      svg > polygon,
-      .rank {
-        filter: drop-shadow( 2px 2px 1px rgba(0, 0, 0, .7));
-      }
+.hands {
+    user-select: none;
+    .buttons {
+        button {
+            user-select: none;
+            cursor: pointer;
 
-    $dark-red: rgb(161, 23, 23);
-    $red: rgb(212, 32, 32);
-    $dark-blue: rgb(37, 37, 187);
-    $blue: rgb(38, 38, 214);
+            padding: 1em;
+            margin: 1em;
 
-      
-    &.hearts, &.diamonds {
-        .rank {
-            color: $dark-red;
-        }
 
-      svg {
-          path, polygon {
-              stroke: $dark-red;
-              stroke-width: 10px;
-              fill: $red;
-          }
-        }
-      }
+            border-radius: 2px;
+            border: 2px solid white;
+            background: rgba(0, 0, 0, .3);
+            color: white;
+            backdrop-filter: blur(8px);
 
-      &.clubs, &.spades {
-        .rank {
-            color: $dark-blue;
-        }
-        .suit {
-        svg {
-            path, polygon {
-                stroke: $dark-blue;
-                stroke-width: 10px;
-                fill: $blue;
+            &:hover {
+                background: rgba(10, 10, 10, .7);
             }
-          }
-        }
+
+            &:active {
+                border: 2px solid rgba(250, 250, 250, .7);
+                background: rgba(40, 40, 40, .8);
+            }
         }
     }
-  }
+}
+
+
+.hands {
+
+    .updatable {
+
+        position: relative;
+
+        &::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0%;
+            height: 0.14em;
+            background: linear-gradient(to right, rgb(233, 101, 167), rgb(147, 101, 233));
+            opacity: 0.2;
+            transition: all 150ms;
+            transform: translate(-50%, 0);
+        }
+    
+        &:hover::after {
+            width: 100%;
+            opacity: 1;
+        }
+    }
+
+    .hand.updatable {
+        &:hover::after {
+            width: 80%;
+            opacity: 1;
+        }
+    }
 }
