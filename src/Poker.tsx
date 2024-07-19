@@ -156,7 +156,8 @@ type KlassInfo = {
   abbr: string,
   desc: string,
   short_desc: string,
-  kickers: number[]
+  kickers: number[],
+  long_kickers: string[],
 }
 
 
@@ -282,6 +283,64 @@ class PotMemo {
   set total_pot(_: Chips) {
     this._total_pot[1](_)
   }
+
+  _shares: Signal<PotShareInfo[] | undefined> = createSignal<PotShareInfo[] | undefined>(undefined)
+
+  get shares() {
+    return this._shares[0]()
+  }
+
+  set shares(v: PotShareInfo[] | undefined) {
+    this._shares[1](v)
+
+    if (v === undefined) {
+      clearInterval(this.clear_timer)
+      this.clear_timer = undefined
+      this._i_current_share[1](undefined)
+      this._t_elapsed[1](undefined)
+      return
+    }
+
+    this._i_current_share[1](0)
+    this._t_elapsed[1](0)
+
+
+    this.clear_timer = setInterval(() => {
+      let e = this._t_elapsed[0]()!
+
+      this._t_elapsed[1](e + 60)
+
+      if (e > 60000) {
+        clearInterval(this.clear_timer)
+        this.clear_timer = undefined
+
+        let i = this._i_current_share[0]()!
+        if (i + 1 < this.shares!.length) {
+          this._i_current_share[1](i + 1)
+        } else {
+          this._i_current_share[1](undefined)
+        }
+      }
+    }, 60)
+  }
+
+  _i_current_share = createSignal<number | undefined>(undefined)
+
+  clear_timer?: number
+  _t_elapsed = createSignal<number | undefined>(undefined)
+
+  get current_share() {
+    return this.shares?.[this._i_current_share[0]()!]
+  }
+
+  constructor() {
+    createEffect(on(() => this.current_share, share => {
+      if (share) {
+        this.total_pot -= share.total
+      }
+
+    }))
+  }
 }
 
 
@@ -291,6 +350,10 @@ class ShowdownWinInfo {
 
   get desc() {
     return this.info.desc
+  }
+
+  get long_kickers() {
+    return this.info.long_kickers
   }
 
   constructor(
@@ -323,6 +386,18 @@ class PotShareInfo {
     if (this.share.back) {
       return this.share.back
     }
+  }
+
+  get total() {
+    return this.share.back ? this.share.back[1] :
+    this.share.win ? this.share.win[1] :
+    this.share.swin ? this.share.swin[1] : 0
+  }
+
+  get side() {
+    return this.share.back ? this.share.back[0] :
+    this.share.win ? this.share.win[0] :
+    this.share.swin ? this.share.swin[0] : 0
   }
 
   constructor(readonly share: PotShare, readonly hands: [Card, Card][], readonly middle: [Card, Card, Card, Card, Card]) {
@@ -387,6 +462,8 @@ class CardRevealMemo {
         }
         clearInterval(this.clear_timer)
         this.clear_timer = undefined
+        this.show_delay_ms = 0
+        this.reveal_delay_ms = 300
       }
     }, 60)
   }
@@ -443,6 +520,7 @@ class CardRevealMemo {
     this.is_show = createMemo(() => this._t_elapsed[0]() >= this.show_delay_ms)
   }
 }
+
 
 class RoundNPovMemo {
   patch(ev: Event[]) {
@@ -537,7 +615,7 @@ class RoundNPovMemo {
 
 
     if (pot_shares.length > 0) {
-      this.pot_shares[1](pot_shares.map(_ => new PotShareInfo(_, this.stacks.map(_ => _.hand2), this.middle5)))
+      this.pot.shares = pot_shares.map(_ => new PotShareInfo(_, this.stacks.map(_ => _.hand2), this.middle5))
     }
   }
 
@@ -560,8 +638,6 @@ class RoundNPovMemo {
   flop: [CardRevealMemo, CardRevealMemo, CardRevealMemo] = [new CardRevealMemo(), new CardRevealMemo(), new CardRevealMemo()]
   turn: CardRevealMemo = new CardRevealMemo()
   river: CardRevealMemo = new CardRevealMemo()
-
-  pot_shares: Signal<PotShareInfo[] | undefined> = createSignal<PotShareInfo[] | undefined>(undefined)
 
   no_delay: boolean = false
 
@@ -598,7 +674,7 @@ class RoundNPovMemo {
         this.flop.map((c, i) => c.card = round_pov.flop?.[i])
         this.turn.card = round_pov.turn
         this.river.card = round_pov.river
-        this.pot_shares[1](round_pov.shares?.map(_ => new PotShareInfo(_, round_pov.stacks.map(_ => _.hand!), round_pov.middle as [Card, Card, Card, Card, Card])))
+        this.pot.shares = round_pov.shares?.map(_ => new PotShareInfo(_, round_pov.stacks.map(_ => _.hand!), round_pov.middle as [Card, Card, Card, Card, Card]))
     }
   }
 
@@ -733,7 +809,7 @@ class HeadsupMemo {
   stacks: Accessor<StackMemo[] | undefined>
   seats: Accessor<SeatMemo[] | undefined>
   pot: Accessor<PotMemo | undefined>
-  pot_shares: Accessor<PotShareInfo[] | undefined>
+  current_pot_share: Accessor<PotShareInfo | undefined>
   turn_timer_left: Accessor<number | undefined>
 
   get resolve_animation_end() {
@@ -771,7 +847,7 @@ class HeadsupMemo {
     this.river = createMemo(() => this.roundn.is_initialized ? this.roundn.river : undefined)
 
     this.pot = createMemo(() => this.roundn.is_initialized ? this.roundn.pot : undefined)
-    this.pot_shares = createMemo(() => this.roundn.is_initialized ? this.roundn.pot_shares[0]() : undefined)
+    this.current_pot_share = createMemo(() => this.roundn.is_initialized ? this.roundn.pot.current_share : undefined)
 
     this.stacks = createMemo(() => this.roundn.is_initialized ? this.roundn.stacks : undefined)
     this.seats = createMemo(() => this.gamen.is_initialized ? this.gamen.seats : undefined)
@@ -877,7 +953,6 @@ class HeadsupReplay {
       if (this.playing || i === -1) {
         // patch events
         if (events.round_events) {
-          console.log(events.round_events)
           this.hm.round_patch(events.round_events)
         }
 
@@ -889,7 +964,10 @@ class HeadsupReplay {
           }
         }
 
-        this.hm.dests_init(events.round_dests)
+        if (this.i === -1) {
+          this.hm.dests_init(events.round_dests)
+          if (events.round_extra) this.hm.extra_init(events.round_extra)
+        }
 
       } else {
         if (events.round_pov) {
@@ -899,7 +977,7 @@ class HeadsupReplay {
           this.hm.game_init(events.game_pov)
         }
 
-        this.hm.dests_init(events.round_dests)
+        this.hm.dests_init(undefined)
       }
     }))
   }
@@ -947,6 +1025,7 @@ class AIPlayer extends Player {
   }
 
   async act(_npov: RoundNPov, dests: Dests) {
+    await new Promise(resolve => setTimeout(resolve, 1000))
     if (dests.raise) {
       let { match, min_raise, cant_match, cant_minraise } = dests.raise
 
@@ -998,9 +1077,7 @@ export class HeadsupLocalPlay {
   async begin_phase_loop_when_ready() {
     await Promise.all(this.players.map(_ => _._wait_ready))
 
-    console.log('begin')
     let winner = await this.phase_loop()
-    console.log('over ', winner)
   }
 
   async phase_loop() {
@@ -1024,16 +1101,14 @@ export class HeadsupLocalPlay {
         }
     }
 
-    const dealer_act_for_round = (act: string) => {
+    const dealer_act_for_round = async (act: string) => {
       let events = h.round_act(act)
+
+      await new Promise(resolve => setTimeout(resolve, 1000))
       headsup_change(undefined, events)
     }
 
     while (!h.winner) {
-
-      await this.ui.sockets.replay.hm.resolve_animation_end
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
       if (h.game_dests.deal) {
         let { small_blind, button, seats } = h.game!
         if (++this.level % 20 === 0) {
@@ -1052,13 +1127,13 @@ export class HeadsupLocalPlay {
 
       if (round && round_dests) {
         if (round_dests.phase) {
-          dealer_act_for_round('phase')
+          await dealer_act_for_round('phase')
         } else if (round_dests.win) {
-          dealer_act_for_round('win')
+          await dealer_act_for_round('win')
         } else if (round_dests.share) {
-          dealer_act_for_round('share')
+          await dealer_act_for_round('share')
         } else if (round_dests.showdown) {
-          dealer_act_for_round('showdown')
+          await dealer_act_for_round('showdown')
         } else {
 
           let { action_side } = round
@@ -1138,8 +1213,22 @@ export const Poker2 = () => {
   const pot = createMemo(() => hm.pot())
   const stacks = createMemo(() => hm.stacks())
   const seats = createMemo(() => hm.seats())
-  const pot_shares = createMemo(() => hm.pot_shares())
+  const current_pot_share = createMemo(() => hm.current_pot_share())
   const turn_timer_left = createMemo(() => hm.turn_timer_left())
+
+  const win_kickers = createMemo(() => current_pot_share()?.showdown_win_info?.long_kickers)
+
+  const kicker_elevate = (_?: string, side?: Side) => {
+    if (side && current_pot_share()?.side !== side) {
+      return ''
+    }
+
+    console.log(win_kickers(), _, side)
+    if (win_kickers()?.includes(_ ?? '')) {
+      return ' elevate'
+    }
+    return ''
+  }
 
   let raise_ui = createMemo(() => {
     let d = dests()
@@ -1211,11 +1300,15 @@ export const Poker2 = () => {
         </div>
 
 
-        <div class='showdown-win'>
-          <Show when={pot_shares()}>{ _info => 
-            <> <span></span> </>
-          }</Show>
-        </div>
+        
+        <Show when={current_pot_share()}>{ share => 
+          <> 
+            <span class={'share chips ' + klass[share().side - 1]}>{share().total}</span> 
+            <Show when={share().showdown_win_info}>{ info => 
+              <span class={'share info'}>{info().desc}</span> 
+            }</Show>
+          </>
+        }</Show>
         <div class='middle'>
           <Show fallback={
             <>
@@ -1225,13 +1318,13 @@ export const Poker2 = () => {
             </>
           } when={flop()}>{flop =>
             <>
-              <div class='flop1'><div class={flop()[0].klass}></div></div>
-              <div class='flop2'><div class={flop()[1].klass}></div></div>
-              <div class='flop3'><div class={flop()[2].klass}></div></div>
+              <div class='flop1'><div class={flop()[0].klass + kicker_elevate(flop()[0].card)}></div></div>
+              <div class='flop2'><div class={flop()[1].klass + kicker_elevate(flop()[1].card)}></div></div>
+              <div class='flop3'><div class={flop()[2].klass + kicker_elevate(flop()[2].card)}></div></div>
             </>
             }</Show>
-          <div class='turn'><Show when={turn()}>{turn => <div class={turn().klass}></div>}</Show></div>
-          <div class='river'><Show when={river()}>{river => <div class={river().klass}></div>}</Show></div>
+          <div class='turn'><Show when={turn()}>{turn => <div class={turn().klass + kicker_elevate(turn().card)}></div>}</Show></div>
+          <div class='river'><Show when={river()}>{river => <div class={river().klass + kicker_elevate(river().card)}></div>}</Show></div>
         </div>
         <div class='totalpot'>
           <Show when={pot()}>{pot =>
@@ -1339,8 +1432,8 @@ export const Poker2 = () => {
                 </div>
               } when={stack().hand}>{hand =>
                 <div class={'hand ' + klass[i]}>
-                  <div class={hand()[0].klass}></div>
-                  <div class={hand()[1].klass}></div>
+                  <div class={hand()[0].klass + kicker_elevate(hand()[0].card, i + 1 as Side)}></div>
+                  <div class={hand()[1].klass + kicker_elevate(hand()[1].card, i + 1 as Side)}></div>
                 </div>
                 }</Show>
             </div>

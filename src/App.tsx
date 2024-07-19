@@ -1,11 +1,11 @@
-import { Poker2 } from "./Poker"
+import { Showcase } from './PokerComponents'
 
 function App() {
 
 
   return (
     <>
-    <Poker2/>
+    <Showcase/>
     </>
   )
 

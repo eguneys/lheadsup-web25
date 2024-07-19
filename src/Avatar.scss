@@ -373,6 +373,22 @@
                 }
             }
         }
+
+
+        .share.chips {
+            &.one {
+              animation: to-one .8s forwards;
+            }
+            &.two {
+              animation: to-two .8s forwards;
+            }
+        }
+
+        .card {
+            &.elevate {
+                animation: elevate .8s forwards;
+            }
+        }
     }
 
 }
@@ -437,6 +453,25 @@
         right: 2%;
         transform: translate(0%, 0%);
     }
+
+
+    .share {
+
+        
+        &.info {
+            left: 20%;
+            top: 35%;
+        }
+    
+        &.chips {
+            left: 61%;
+            top: 50%;
+        }
+    }
+}
+
+@keyframes elevate {
+    100% { transform: translateY(-10%); }
 }
 
 @keyframes flash {
@@ -463,6 +498,15 @@
 @keyframes to-pot {
     100% { top: 50%; left: 64%; opacity: 0.2; }
 }
+
+@keyframes to-one {
+    100% { top: calc(80% - 17%); left: 48%; opacity: 0.2; }
+}
+
+@keyframes to-two {
+    100% { top: calc(16% + 17%); left: 48%; opacity: 0.2; }
+}
+
 
 
 

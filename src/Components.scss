@@ -1,0 +1,169 @@
+.showcase {
+    display: flex;
+    flex-flow: column;
+    justify-content: center;
+
+    section {
+        flex: 1;
+        padding: 1em;
+        display: flex;
+        flex-flow: column;
+        justify-content: center;
+
+        h2 {
+            text-align: center;
+            padding: 1em;
+            border: 1px solid black;
+            cursor: pointer;
+            background: linear-gradient(rgb(249, 248, 248) 20%, rgb(207, 207, 207) 96%, rgb(13, 13, 13) 97%);
+            &:hover {
+               background: linear-gradient(rgb(249, 248, 248) 50%, rgb(207, 207, 207) 96%, rgb(13, 13, 13) 98%);
+            }
+        }
+
+    }
+}
+
+.area {
+    .hands {
+        background: radial-gradient(rgb(70, 103, 80), rgb(44, 70, 52));
+        .hand {
+            margin: auto;
+            width: 50%;
+        }
+    }
+}
+
+.hands {
+
+   .hand {
+       display: flex;
+       padding: 1em;
+       gap: 1em;
+
+
+       .card:first-child {
+        transform: translateX(50px) scale(.8) rotateZ(-10deg);
+       }
+       .card:last-child {
+        transform: translateX(-50px) scale(.8) rotateZ(10deg);
+       }
+   }
+
+   .card.back {
+    background: none;
+   }
+
+   .card:hover .inner,
+   .card.back .inner {
+    transform: rotateY(180deg);
+   }
+
+  .card {
+    width: 100%;
+    position: relative;
+    aspect-ratio: 5/7;
+
+    .inner {
+        width: 100%;
+        height: 100%;
+        transition: transform .8s;
+        transform-style: preserve-3d;
+    }
+
+    .inner {
+        .front, .back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+
+            border: 3px solid rgb(1, 3, 20);
+            border-radius: 18px;
+        }
+
+        .back {
+            background-size: cover;
+            transform: rotateY(180deg);
+        }
+    }
+
+    .decoration {
+      width: 100%;
+      height: 100%;
+
+      background: linear-gradient(rgb(245, 245, 154) 0%, rgb(243, 243, 197) 8%, rgb(212, 212, 177) 99%, rgb(24, 24, 17));
+
+      .suit-left {
+        position: absolute;
+        top: 10%;
+        left: 80%;
+        width: 60%;
+        transform: translate(-50%, -50%);
+      }
+
+      .suit-middle {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 150%;
+        transform: translate(-50%, -50%);
+      }
+
+      .suit {
+        width: 100%;
+        height: 100%;
+      }
+
+      .rank {
+        position: absolute;
+        font-size: 6em;
+        font-weight: bold;
+        top: 2%;
+        left: 4%;
+      }
+
+
+      svg > path,
+      svg > polygon,
+      .rank {
+        filter: drop-shadow( 2px 2px 1px rgba(0, 0, 0, .7));
+      }
+
+    $dark-red: rgb(161, 23, 23);
+    $red: rgb(212, 32, 32);
+    $dark-blue: rgb(37, 37, 187);
+    $blue: rgb(38, 38, 214);
+
+      
+    &.hearts, &.diamonds {
+        .rank {
+            color: $dark-red;
+        }
+
+      svg {
+          path, polygon {
+              stroke: $dark-red;
+              stroke-width: 10px;
+              fill: $red;
+          }
+        }
+      }
+
+      &.clubs, &.spades {
+        .rank {
+            color: $dark-blue;
+        }
+        .suit {
+        svg {
+            path, polygon {
+                stroke: $dark-blue;
+                stroke-width: 10px;
+                fill: $blue;
+            }
+          }
+        }
+        }
+    }
+  }
+}
