@@ -104,7 +104,7 @@ type Uk<T> = { resolve_on_updated: Promise<void>, updated: boolean, klass: strin
 type CardProp = { card: Uk<Card>, elevate: Uk<boolean>, back: Uk<boolean> } 
 & { 
     set_card: (_: Card | undefined) => Promise<void> 
-    set_elevate: (_: boolean | undefined) => Promise<void>
+    set_elevate: (_: Card5) => Promise<void>
     set_back: (_: boolean | undefined) => Promise<void>
 }
 type HandCards = { hand: [CardProp, CardProp] }
@@ -277,8 +277,8 @@ export const UCardProper = (opts: UOptions): CardProp => {
         set_card(_: Card | undefined) {
             return card.set_target(_)
         },
-        set_elevate(_: boolean | undefined) {
-            return elevate.set_target(_)
+        set_elevate(_: Card5) {
+            return elevate.set_target(_.includes(card.value ?? ''))
         },
         set_back(_: boolean | undefined) {
             return back.set_target(_)
@@ -331,19 +331,19 @@ export const MiddleNProper = () => {
         get people() {
             return people()
         },
-        set_flop_get_resolve(cards: [Card, Card, Card] | undefined) {
+        set_flop(cards: [Card, Card, Card] | undefined) {
             return u_flop.set_cards(cards)
         },
-        set_turn_get_resolve(card: Card | undefined) {
+        set_turn(card: Card | undefined) {
             return u_turn.set_card(card)
         },
-        set_river_get_resolve(card: Card | undefined) {
+        set_river(card: Card | undefined) {
             return u_river.set_card(card)
         },
         set total_pot(pot: number | undefined) {
             u_pot.set_target(pot)
         },
-        reveal_middle_get_resolve(middle: Card5) {
+        reveal_middle(middle: Card5) {
             let flop = middle.slice(0, 3) as Card3
             let turn = middle[3]
             let river = middle[4]
@@ -354,31 +354,30 @@ export const MiddleNProper = () => {
             resolve = resolve.then(() => u_river.set_card(river))
             return resolve
         },
-        set_showdown_info_get_resolve(info: SetShowdownInfo[] | undefined) {
+        set_showdown_info(info: SetShowdownInfo[] | undefined) {
             let resolve = Promise.resolve()
 
             info?.forEach(info => {
                 if (!info) {
-                    u_showdown_info.set_target(undefined)
+                    resolve = resolve.then(() => u_showdown_info.set_target(undefined))
                     return
                 }
 
-                resolve = resolve.then(() => { u_showdown_info.set_target(info.desc) }).then(() => console.log('why resolve again'))
+                resolve = resolve.then(() => u_showdown_info.set_target(info.desc))
                 let cards = info.cards
                 resolve = resolve.then(() => {
-
                     let hand = people()[info.side - 1].hand
-                    let h1 = hand[0].set_elevate(cards.includes(hand[0].card.value ?? ''))
-                    let h2 = hand[1].set_elevate(cards.includes(hand[1].card.value ?? ''))
+                    let h1 = hand[0].set_elevate(cards)
+                    let h2 = hand[1].set_elevate(cards)
 
                     console.log('set elevate', cards)
                     return Promise.all([
-                        u_flop.cards[0].set_elevate(cards.includes(u_flop.cards[0].card.value ?? '')),
-                    u_flop.cards[1].set_elevate(cards.includes(u_flop.cards[1].card.value ?? '')),
-                    u_flop.cards[2].set_elevate(cards.includes(u_flop.cards[2].card.value ?? '')),
-                    u_turn.set_elevate(cards.includes(u_turn.card.value ?? '')),
-                    u_river.set_elevate(cards.includes(u_river.card.value ?? '')),
-                    h1, h2]).then(() => console.log('done elevate'))
+                        u_flop.cards[0].set_elevate(cards),
+                    u_flop.cards[1].set_elevate(cards),
+                    u_flop.cards[2].set_elevate(cards),
+                    u_turn.set_elevate(cards),
+                    u_river.set_elevate(cards),
+                    h1, h2]).then(() => {})
                 })
             })
             return resolve
@@ -401,18 +400,18 @@ export const Showcase = () => {
 
     setTimeout(() => {
         let resolve = Promise.resolve()
-        resolve = resolve.then(() => u_m.set_flop_get_resolve(['Ah', 'Ac', 'Ad']))
-        resolve = resolve.then(() => u_m.set_turn_get_resolve('Td'))
-        resolve = resolve.then(() => u_m.set_river_get_resolve('Ts'))
+        resolve = resolve.then(() => u_m.set_flop(['Ah', 'Ac', 'Ad']))
+        resolve = resolve.then(() => u_m.set_turn('Td'))
+        resolve = resolve.then(() => u_m.set_river('Ts'))
         u_m.total_pot = 100
         u_m.people[0].set_chips(1000)
-        resolve = resolve.then(() => u_m.set_showdown_info_get_resolve([{
+        resolve = resolve.then(() => u_m.set_showdown_info([{
             desc: 'High Card A J 3',
             cards: split_cards('AhAcAdTdTs') as Card5,
             side: 1,
             chips: 100
         }, {
-            desc: 'Two Pair A K',
+            desc: 'Two Pair A K Q',
             cards: split_cards('AhAcKcKdTs') as Card5,
             side: 2,
             chips: 100
@@ -534,10 +533,9 @@ const uklass = function<T>(opts: UOptions, def_value?: T): Uk<T> {
 
         onCleanup(() => { 
             batch(() => {
+                console.log('clear cleanup', p, t, resolves)
                 set_updated(false)
                 set_current(() => t)
-                resolves.forEach(_ => _())
-                resolves = []
             })
             clearTimeout(clear_id) 
             clearTimeout(clear_id2) 
@@ -554,8 +552,9 @@ const uklass = function<T>(opts: UOptions, def_value?: T): Uk<T> {
         get klass() { return klass() }, 
         get value() { return current() },
         set_target(t: T | undefined) { 
+            let res = this.resolve_on_updated
             set_target(() => t) 
-            return this.resolve_on_updated
+            return res
         }
     }
 }
