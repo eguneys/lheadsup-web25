@@ -1,6 +1,6 @@
-import { Card, Card5, Side, Suit, split_cards } from 'phevaluatorjs25'
+import { Card, Card3, Card5, Side, Suit, split_cards } from 'phevaluatorjs25'
 import './Components.scss'
-import { Accessor, batch, createEffect, createMemo, createSignal, Index, JSX, Match, on, onCleanup, Show, Switch } from "solid-js"
+import { batch, createEffect, createMemo, createSignal, Index, JSX, Match, on, onCleanup, Show, Switch } from "solid-js"
 
 const side_klass = ['one', 'two', 'three', 'four', 'five', 'six']
 
@@ -98,14 +98,14 @@ export const Hand = (props: HandCards) => {
     </>)
 }
 
-type Uk<T> = { resolve_on_updated: Promise<void>, updated: boolean, klass: string, value: T | undefined }
+type Uk<T> = { resolve_on_updated: Promise<void>, updated: boolean, klass: string, value: T | undefined, set_target: (_: T | undefined) => Promise<void>}
 
 
 type CardProp = { card: Uk<Card>, elevate: Uk<boolean>, back: Uk<boolean> } 
 & { 
-    _set_card: (_: Card | undefined) => Promise<void> 
-    _set_elevate: (_: boolean | undefined) => Promise<void>
-    _set_back: (_: boolean | undefined) => void 
+    set_card: (_: Card | undefined) => Promise<void> 
+    set_elevate: (_: boolean | undefined) => Promise<void>
+    set_back: (_: boolean | undefined) => Promise<void>
 }
 type HandCards = { hand: [CardProp, CardProp] }
 type MiddleCards = { flop: [CardProp, CardProp, CardProp], turn: CardProp, river: CardProp } & ShowdownInfo
@@ -152,7 +152,7 @@ type PersonProps = HandCards & {
     state: Uk<string>,
     turn_left: Uk<number>
 } & {
-    _set_chips: (_: number | undefined) => void
+    set_chips: (_: number | undefined) => Promise<void>
 }
 
 export const Person = (props: PersonProps) => {
@@ -251,45 +251,37 @@ export const MiddleNHands = (props: { people: PersonProps[], middle: MiddleCards
 export const PersonProper = (i: Side) => {
 
     const [_class, _set_class] = createSignal<string>(side_klass[i - 1])
-    const [_chips, _set_chips] = createSignal<number | undefined>(undefined)
-    const [_state, _set_state] = createSignal<string | undefined>(undefined)
-    const [_bet, _set_bet] = createSignal<Bet | undefined>(undefined)
-    const [_turn_left, _set_turn_left] = createSignal<number | undefined>(undefined)
 
     let hand = UCardProper2({ init_delay: 300, update_delay: 2000, exit_delay: 300})
-    let chips = uklass(_chips, { init_delay: 100, update_delay: 200, exit_delay: 300})
-    let state = uklass(_state, { init_delay: 300, update_delay: 2000, exit_delay: 300})
-    let bet = uklass(_bet, { init_delay: 300, update_delay: 2000, exit_delay: 300})
-    let turn_left = uklass(_turn_left, { init_delay: 300, update_delay: 2000, exit_delay: 300})
+    let chips = uklass<number>({ init_delay: 100, update_delay: 200, exit_delay: 300})
+    let state = uklass<string>({ init_delay: 300, update_delay: 2000, exit_delay: 300})
+    let bet = uklass<Bet>({ init_delay: 300, update_delay: 2000, exit_delay: 300})
+    let turn_left = uklass<number>({ init_delay: 300, update_delay: 2000, exit_delay: 300})
 
-    return { _set_chips, turn_left, hand: hand.cards, chips, state, bet, get class() { return _class() } }
+    return { 
+        set_chips(_: number | undefined) { 
+            return chips.set_target(_) 
+        } , 
+        turn_left, hand: hand.cards, chips, state, bet, get class() { return _class() } }
 }
 
 export const UCardProper = (opts: UOptions): CardProp => {
-    const [_card, _set_card] = createSignal<Card | undefined>(undefined)
-    const card = uklass(_card, opts)
-
-    const [_elevate, _set_elevate] = createSignal<boolean | undefined>(undefined)
-    const elevate = uklass(_elevate, { update_delay: 8000 })
-
-    const [_back, _set_back] = createSignal<boolean | undefined>(undefined)
-    const back = uklass(_back, opts)
+    const card = uklass<Card>(opts)
+    const elevate = uklass<boolean>({ update_delay: 8000 })
+    const back = uklass<boolean>(opts)
 
     return { 
         card,
         elevate,
         back,
-        _set_card(_: Card | undefined) {
-            _set_card(_)
-            return card.resolve_on_updated
+        set_card(_: Card | undefined) {
+            return card.set_target(_)
         },
-        _set_elevate(_: boolean | undefined) {
-            _set_elevate(_)
-            return elevate.resolve_on_updated
+        set_elevate(_: boolean | undefined) {
+            return elevate.set_target(_)
         },
-        _set_back(_: boolean | undefined) {
-            _set_back(_)
-            return back.resolve_on_updated
+        set_back(_: boolean | undefined) {
+            return back.set_target(_)
         }
     }
 }
@@ -297,9 +289,9 @@ export const UCardProper = (opts: UOptions): CardProp => {
 export const UCardProper2 = (opts: UOptions) => {
     return {
     cards: [UCardProper(opts), UCardProper(opts)] as [CardProp, CardProp],
-    _set_cards(cards: [Card, Card] | undefined) {
-        this.cards[0]._set_card(cards?.[0])
-        return this.cards[1]._set_card(cards?.[1])
+    set_cards(cards: [Card, Card] | undefined) {
+        this.cards[0].set_card(cards?.[0])
+        return this.cards[1].set_card(cards?.[1])
     }
    }
 }
@@ -307,32 +299,28 @@ export const UCardProper2 = (opts: UOptions) => {
 export const UCardProper3 = (opts: UOptions) => {
    return {
     cards: [UCardProper(opts), UCardProper(opts), UCardProper(opts)] as [CardProp, CardProp, CardProp],
-    _set_cards(cards: [Card, Card, Card] | undefined) {
-        this.cards[0]._set_card(cards?.[0])
-        this.cards[1]._set_card(cards?.[1])
-        return this.cards[2]._set_card(cards?.[2])
+    set_cards(cards: [Card, Card, Card] | undefined) {
+        this.cards[0].set_card(cards?.[0])
+        this.cards[1].set_card(cards?.[1])
+        return this.cards[2].set_card(cards?.[2])
     }
    }
 }
 
 
 export const MiddleNProper = () => {
-    const [_pot, _set_pot] = createSignal<number | undefined>(undefined)
     const [_people, _set_people] = createSignal<PersonProps[]>([PersonProper(1), PersonProper(2)])
-    const [_showdown_info, _set_showdown_info] = createSignal<string | undefined>(undefined)
 
     let u_flop = UCardProper3({ init_delay: 300, update_delay: 2000, exit_delay: 300})
     let u_turn = UCardProper({ init_delay: 300, update_delay: 3000, exit_delay: 300})
     let u_river = UCardProper({ init_delay: 300, update_delay: 3500, exit_delay: 300})
 
-    let u_pot = uklass(_pot, { update_delay: 300, exit_delay: 1000 })
-    let u_showdown_info = uklass(_showdown_info, { update_delay: 6000, exit_delay: 1000 })
+    let u_pot = uklass<number>({ update_delay: 300, exit_delay: 1000 })
+    let u_showdown_info = uklass<string>({ update_delay: 6000, exit_delay: 1000 })
 
 
     const middle = createMemo(() => ({ flop: u_flop.cards, turn: u_turn, river: u_river, showdown_info: u_showdown_info }))
     const people = createMemo(() => _people())
-
-    let resolve = Promise.resolve()
 
 
     return {
@@ -343,38 +331,57 @@ export const MiddleNProper = () => {
         get people() {
             return people()
         },
-        set flop(cards: [Card, Card, Card] | undefined) {
-            resolve = resolve.then(() => u_flop._set_cards(cards))
+        set_flop_get_resolve(cards: [Card, Card, Card] | undefined) {
+            return u_flop.set_cards(cards)
         },
-        set turn(card: Card | undefined) {
-            resolve = resolve.then(() => u_turn._set_card(card))
+        set_turn_get_resolve(card: Card | undefined) {
+            return u_turn.set_card(card)
         },
-        set river(card: Card | undefined) {
-            resolve = resolve.then(() => u_river._set_card(card))
+        set_river_get_resolve(card: Card | undefined) {
+            return u_river.set_card(card)
         },
         set total_pot(pot: number | undefined) {
-            _set_pot(pot)
+            u_pot.set_target(pot)
         },
-        set showdown_info(info: SetShowdownInfo | undefined) {
-            if (!info) {
-                _set_showdown_info(undefined)
-                return
-            }
-            resolve = resolve.then(() => {
-                _set_showdown_info(info.desc)
-            })
+        reveal_middle_get_resolve(middle: Card5) {
+            let flop = middle.slice(0, 3) as Card3
+            let turn = middle[3]
+            let river = middle[4]
 
-            let cards = info.cards
-            resolve = resolve.then(() => {
-                u_flop.cards[0]._set_elevate(cards.includes(u_flop.cards[0].card.value ?? ''))
-                u_flop.cards[1]._set_elevate(cards.includes(u_flop.cards[1].card.value ?? ''))
-                u_flop.cards[2]._set_elevate(cards.includes(u_flop.cards[2].card.value ?? ''))
-                u_turn._set_elevate(cards.includes(u_turn.card.value ?? ''))
-                u_river._set_elevate(cards.includes(u_river.card.value ?? ''))
-                let hand = people()[info.side - 1].hand
-                hand[0]._set_elevate(cards.includes(hand[0].card.value ?? ''))
-                return hand[1]._set_elevate(cards.includes(hand[1].card.value ?? ''))
+            let resolve = Promise.resolve()
+            resolve = resolve.then(() => u_flop.set_cards(flop))
+            resolve = resolve.then(() => u_turn.set_card(turn))
+            resolve = resolve.then(() => u_river.set_card(river))
+            return resolve
+        },
+        set_showdown_info_get_resolve(info: SetShowdownInfo[] | undefined) {
+            let resolve = Promise.resolve()
+
+            info?.forEach(info => {
+                if (!info) {
+                    u_showdown_info.set_target(undefined)
+                    return
+                }
+
+                resolve = resolve.then(() => { u_showdown_info.set_target(info.desc) }).then(() => console.log('why resolve again'))
+                let cards = info.cards
+                resolve = resolve.then(() => {
+
+                    let hand = people()[info.side - 1].hand
+                    let h1 = hand[0].set_elevate(cards.includes(hand[0].card.value ?? ''))
+                    let h2 = hand[1].set_elevate(cards.includes(hand[1].card.value ?? ''))
+
+                    console.log('set elevate', cards)
+                    return Promise.all([
+                        u_flop.cards[0].set_elevate(cards.includes(u_flop.cards[0].card.value ?? '')),
+                    u_flop.cards[1].set_elevate(cards.includes(u_flop.cards[1].card.value ?? '')),
+                    u_flop.cards[2].set_elevate(cards.includes(u_flop.cards[2].card.value ?? '')),
+                    u_turn.set_elevate(cards.includes(u_turn.card.value ?? '')),
+                    u_river.set_elevate(cards.includes(u_river.card.value ?? '')),
+                    h1, h2]).then(() => console.log('done elevate'))
+                })
             })
+            return resolve
         }
     }
 }
@@ -382,7 +389,8 @@ export const MiddleNProper = () => {
 type SetShowdownInfo = {
     desc: string,
     cards: Card5,
-    side: Side
+    side: Side,
+    chips: number
 }
 
 
@@ -392,27 +400,47 @@ export const Showcase = () => {
 
 
     setTimeout(() => {
-        u_m.flop = ['Ah', 'Ac', 'Ad']
-        u_m.turn = 'Td'
-        u_m.river = 'Ts'
+        let resolve = Promise.resolve()
+        resolve = resolve.then(() => u_m.set_flop_get_resolve(['Ah', 'Ac', 'Ad']))
+        resolve = resolve.then(() => u_m.set_turn_get_resolve('Td'))
+        resolve = resolve.then(() => u_m.set_river_get_resolve('Ts'))
         u_m.total_pot = 100
-        u_m.people[0]._set_chips(1000)
+        u_m.people[0].set_chips(1000)
+        resolve = resolve.then(() => u_m.set_showdown_info_get_resolve([{
+            desc: 'High Card A J 3',
+            cards: split_cards('AhAcAdTdTs') as Card5,
+            side: 1,
+            chips: 100
+        }, {
+            desc: 'Two Pair A K',
+            cards: split_cards('AhAcKcKdTs') as Card5,
+            side: 2,
+            chips: 100
+        }]))
+        resolve.then(() => {
+            console.log('done')
+        })
+    }, 1000)
+    setTimeout(() => {
+
+        return
+        /*
+        u_m.river = undefined
+        u_m.flop = undefined
+        u_m.total_pot = 2000
+        u_m.people[0].set_chips(100)
+        */
+    }, 5000)
+    setTimeout(() => {
+        return
+        /*
         u_m.showdown_info = {
             desc: 'High Card A J 3',
             cards: split_cards('AhAcAdTdTs') as Card5,
             side: 1
         }
-    }, 1000)
-    setTimeout(() => {
-
-        u_m.total_pot = 2000
-        u_m.people[0]._set_chips(100)
-    }, 5000)
-    setTimeout(() => {
-        u_m.turn = undefined
-        u_m.flop = undefined
-        u_m.river = undefined
         u_m.total_pot = undefined
+        */
     }, 10000)
 
     return (<>
@@ -453,8 +481,9 @@ type UOptions = {
     exit_delay?: number
 }
 
-const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): Uk<T> {
+const uklass = function<T>(opts: UOptions, def_value?: T): Uk<T> {
 
+    let [target, set_target] = createSignal<T | undefined>(def_value, { equals: false })
     let i_delay = (opts.init_delay ?? 0) + 300
     let u_delay = i_delay + (opts.update_delay ?? 0)
     let e_delay = (opts.exit_delay ?? 0)
@@ -467,7 +496,8 @@ const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): Uk<
     createEffect(on(target, (t, p) => {
         let clear_id2: number
         let clear_id: number
-        if (p && !t) {
+        console.log(p, t, u_delay, resolves)
+        if (p && t === undefined) {
 
             set_klass('updatable exiting')
             clear_id = setTimeout(() => {
@@ -493,16 +523,19 @@ const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): Uk<
             clear_id2 = setTimeout(() => {
                 set_klass('updatable updated')
                 set_updated(true)
+                console.log('clear ', p, t, resolves)
                 resolves.forEach(_ => _())
                 resolves = []
             }, u_delay)
+        } else {
+            resolves.forEach(_ => _())
+            resolves = []
         }
 
         onCleanup(() => { 
             batch(() => {
                 set_updated(false)
                 set_current(() => t)
-                set_klass('updatable')
                 resolves.forEach(_ => _())
                 resolves = []
             })
@@ -519,6 +552,10 @@ const uklass = function<T>(target: Accessor<T | undefined>, opts: UOptions): Uk<
         }, 
         get updated() { return updated() }, 
         get klass() { return klass() }, 
-        get value() { return current() }
+        get value() { return current() },
+        set_target(t: T | undefined) { 
+            set_target(() => t) 
+            return this.resolve_on_updated
+        }
     }
 }
