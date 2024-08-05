@@ -1,11 +1,11 @@
-import { Showcase } from './PokerComponents'
+import { PokerNeat } from './PokerNeat'
 
 function App() {
 
 
   return (
     <>
-    <Showcase/>
+    <PokerNeat/>
     </>
   )
 

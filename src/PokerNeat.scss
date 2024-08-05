@@ -1,0 +1,122 @@
+.poker-neat {
+
+    padding: 0.1em;
+
+    display: grid;
+
+    grid-template-areas: 'info middle .'
+                         '. stacks pots'
+                         '. ui .';
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.25em;
+    row-gap: 0.25em;
+
+
+    .info {
+        grid-area: info;
+    }
+
+
+    .middle {
+        grid-area: middle;
+    }
+    
+    .pots {
+        grid-area: pots;
+    }
+
+    .stacks {
+        grid-area: stacks;
+    }
+
+    .ui {
+        grid-area: ui;
+    }
+
+    .info,
+    .middle,
+    .pots,
+    .stacks,
+    .ui {
+       border: 1px solid black;
+       padding: 0.5em;
+    }
+
+    .info {
+        display: flex;
+        flex-flow: column;
+
+        gap: 0.25em;
+
+
+        div {
+            display: flex;
+            justify-content: space-between;
+        }
+    }
+    
+    .middle {
+        display:  flex;
+        flex-flow: column;
+
+        .cards {
+            display: flex;
+            flex: 1;
+            gap: 0.1em;
+            .holder:nth-child(3) {
+                margin-right: 0.16em;
+            }
+        }
+    }
+
+
+    .stacks {
+        display: flex;
+        flex-flow: column;
+        justify-content: space-between;
+        .wrap {
+            display: flex;
+            gap: 1em;
+
+            .cards {
+                display: flex;
+                gap: 0.1em;
+            }
+        }
+
+
+        .stack {
+            display: flex;
+            flex-flow: column;
+            gap: 0.1em;
+
+            &> .chips {
+                border-bottom: 1px solid black;
+            }
+            .bet {
+                display: flex;
+                justify-content: space-between;
+            }
+
+            .previous {
+                display: flex;
+                justify-content: flex-end;
+            }
+        }
+    }
+
+    .card {
+        width: 100%;
+        height: 100%;
+
+        background-size: cover;
+    }
+    .holder {
+        height: 100px;
+        aspect-ratio: 352/512;
+        border: 1px solid black;
+        border-radius: 4px;
+    }
+
+
+}
